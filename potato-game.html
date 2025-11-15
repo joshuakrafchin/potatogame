@@ -602,14 +602,15 @@
             // Apply toss effect (pass fromPlayerId for effects that need it)
             type.tossEffect(potato, fromPlayerId);
 
-            // Recalculate timers based on heat modifier
+            // Restart timers from now with heat modifier applied
             const now = Date.now();
-            const timeAlive = now - potato.createdAt;
-            const baseHotTime = type.timeUntilHot / potato.heatModifier;
-            const baseBurnTime = type.timeUntilBurn / potato.heatModifier;
+            const modifiedHotTime = type.timeUntilHot / potato.heatModifier;
+            const modifiedBurnTime = type.timeUntilBurn / potato.heatModifier;
 
-            potato.hotTime = potato.createdAt + baseHotTime;
-            potato.burnTime = potato.createdAt + baseBurnTime;
+            potato.hotTime = now + modifiedHotTime;
+            potato.burnTime = now + modifiedBurnTime;
+            potato.isHot = false; // Reset hot status
+            potato.createdAt = now; // Update creation time to now
 
             // Move potato
             toHand.potato = potato;
