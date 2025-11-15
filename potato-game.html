@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hot Potato Game Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .game-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 400px 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        .player {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .player.active {
+            border: 3px solid #ffd700;
+            box-shadow: 0 8px 32px rgba(255,215,0,0.5);
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .player-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .potato-coins {
+            background: #ffd700;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .hands-container {
+            margin-bottom: 15px;
+        }
+
+        .hand {
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            min-height: 80px;
+        }
+
+        .hand.frozen {
+            background: #b8e0f0;
+            border-color: #4a90e2;
+            position: relative;
+        }
+
+        .hand.frozen::after {
+            content: '❄️ FROZEN';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 10px;
+            color: #4a90e2;
+            font-weight: bold;
+        }
+
+        .potato {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            border-radius: 20px;
+            padding: 10px;
+            margin: 5px 0;
+            color: white;
+            font-size: 12px;
+            position: relative;
+        }
+
+        .potato.hot {
+            animation: pulse 0.5s infinite;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .potato-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .potato-timer {
+            font-size: 10px;
+            margin-top: 5px;
+        }
+
+        .potato-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .store {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .store-header {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #e67e22;
+        }
+
+        .store-potato {
+            background: #f9f9f9;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .store-potato-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .store-potato-name {
+            font-weight: bold;
+            color: #e67e22;
+        }
+
+        .store-potato-price {
+            background: #ffd700;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .store-potato-desc {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .player-controls {
+            margin-top: 10px;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.buy-btn {
+            background: #27ae60;
+        }
+
+        button.buy-btn:hover {
+            background: #229954;
+        }
+
+        button.sell-btn {
+            background: #e74c3c;
+        }
+
+        button.sell-btn:hover {
+            background: #c0392b;
+        }
+
+        button.buy-hand-btn {
+            background: #9b59b6;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button.buy-hand-btn:hover {
+            background: #8e44ad;
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+
+        .log {
+            background: rgba(255,255,255,0.9);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px;
+            border-left: 3px solid #3498db;
+            padding-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="player" id="player0" data-player-id="0">
+            <div class="player-header">
+                <div class="player-name">Player 1</div>
+                <div class="potato-coins"><span class="coins">10</span> PC</div>
+            </div>
+            <div class="hands-container"></div>
+            <div class="player-controls">
+                <button class="buy-hand-btn" onclick="buyHand(0)">Buy Hand (5 PC)</button>
+            </div>
+        </div>
+
+        <div class="store">
+            <div class="store-header">🥔 POTATO STORE 🥔</div>
+            <div id="store-inventory"></div>
+            <div class="log" id="game-log"></div>
+        </div>
+
+        <div class="player" id="player1" data-player-id="1">
+            <div class="player-header">
+                <div class="player-name">Player 2</div>
+                <div class="potato-coins"><span class="coins">10</span> PC</div>
+            </div>
+            <div class="hands-container"></div>
+            <div class="player-controls">
+                <button class="buy-hand-btn" onclick="buyHand(1)">Buy Hand (5 PC)</button>
+            </div>
+        </div>
+
+        <div class="player" id="player2" data-player-id="2">
+            <div class="player-header">
+                <div class="player-name">Player 3</div>
+                <div class="potato-coins"><span class="coins">10</span> PC</div>
+            </div>
+            <div class="hands-container"></div>
+            <div class="player-controls">
+                <button class="buy-hand-btn" onclick="buyHand(2)">Buy Hand (5 PC)</button>
+            </div>
+        </div>
+
+        <div class="player" id="player3" data-player-id="3">
+            <div class="player-header">
+                <div class="player-name">Player 4</div>
+                <div class="potato-coins"><span class="coins">10</span> PC</div>
+            </div>
+            <div class="hands-container"></div>
+            <div class="player-controls">
+                <button class="buy-hand-btn" onclick="buyHand(3)">Buy Hand (5 PC)</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ GAME CONFIGURATION ============
+        // Easy to modify game constants
+        const CONFIG = {
+            STARTING_COINS: 10,
+            HAND_COST: 5,
+            TICK_INTERVAL: 100, // milliseconds
+        };
+
+        // ============ POTATO TYPES ============
+        // Easy to add/modify potato types
+        const POTATO_TYPES = {
+            BASIC: {
+                name: "Basic Potato",
+                basePrice: 2,
+                timeUntilHot: 10000, // ms
+                timeUntilBurn: 15000, // ms
+                burnEffect: (playerId, handId) => {
+                    log(`💥 Basic Potato burned Player ${playerId + 1}'s hand!`);
+                    freezeHand(playerId, handId, 60000); // freeze for 1 minute
+                },
+                tossEffect: (potato) => {
+                    potato.heatModifier = (potato.heatModifier || 1) + 0.1;
+                    log(`🌡️ Potato heating up 10% faster!`);
+                },
+                description: "Burns hand for 1 min. Gets 10% hotter each toss."
+            },
+
+            GOLDEN: {
+                name: "Golden Potato",
+                basePrice: 1,
+                timeUntilHot: 8000,
+                timeUntilBurn: 12000,
+                burnEffect: (playerId, handId) => {
+                    log(`💰 Golden Potato gave Player ${playerId + 1} a coin before burning!`);
+                    gameState.players[playerId].coins += 1;
+                    freezeHand(playerId, handId, 30000); // freeze for 30 seconds
+                },
+                tossEffect: (potato) => {
+                    potato.tosses = (potato.tosses || 0) + 1;
+                    potato.currentValue = potato.basePrice + potato.tosses;
+                    log(`💎 Golden Potato now worth ${potato.currentValue} PC!`);
+                },
+                description: "Value increases by 1 PC per toss. Gives 1 PC when burns."
+            },
+
+            EXPLODING: {
+                name: "Exploding Potato",
+                basePrice: 3,
+                timeUntilHot: 5000,
+                timeUntilBurn: 8000,
+                burnEffect: (playerId, handId) => {
+                    log(`💣 BOOM! Exploding Potato froze all of Player ${playerId + 1}'s hands!`);
+                    gameState.players[playerId].hands.forEach((hand, idx) => {
+                        freezeHand(playerId, idx, 45000); // freeze all hands for 45 seconds
+                    });
+                },
+                tossEffect: (potato) => {
+                    potato.heatModifier = (potato.heatModifier || 1) + 0.2;
+                    log(`💣 Exploding Potato heating up 20% faster!`);
+                },
+                description: "Very hot! Freezes ALL hands for 45s when burns."
+            },
+
+            ICE: {
+                name: "Ice Potato",
+                basePrice: 4,
+                timeUntilHot: 20000,
+                timeUntilBurn: 30000,
+                burnEffect: (playerId, handId) => {
+                    log(`❄️ Ice Potato melted away harmlessly!`);
+                    // No freeze effect
+                },
+                tossEffect: (potato) => {
+                    potato.heatModifier = (potato.heatModifier || 1) - 0.05;
+                    if (potato.heatModifier < 0.5) potato.heatModifier = 0.5;
+                    log(`❄️ Ice Potato cooling down 5%!`);
+                },
+                description: "Cools down when tossed. No hand freeze when burns."
+            },
+
+            LUCKY: {
+                name: "Lucky Potato",
+                basePrice: 5,
+                timeUntilHot: 12000,
+                timeUntilBurn: 18000,
+                burnEffect: (playerId, handId) => {
+                    if (Math.random() < 0.5) {
+                        log(`🍀 Lucky! Player ${playerId + 1} got 3 PC!`);
+                        gameState.players[playerId].coins += 3;
+                    } else {
+                        log(`😓 Unlucky! Player ${playerId + 1}'s hand frozen for 90s!`);
+                        freezeHand(playerId, handId, 90000);
+                    }
+                },
+                tossEffect: (potato) => {
+                    if (Math.random() < 0.3) {
+                        log(`🎰 Lucky toss! Cooled down!`);
+                        potato.heatModifier = (potato.heatModifier || 1) - 0.15;
+                    }
+                },
+                description: "50% chance for 3 PC or 90s freeze. Random cool on toss."
+            }
+        };
+
+        // ============ GAME STATE ============
+        let gameState = {
+            players: [],
+            nextPotatoId: 0
+        };
+
+        // ============ INITIALIZATION ============
+        function initGame() {
+            gameState.players = [0, 1, 2, 3].map(id => ({
+                id,
+                coins: CONFIG.STARTING_COINS,
+                hands: [{ potato: null, frozen: false, frozenUntil: 0 }]
+            }));
+
+            renderAll();
+            setInterval(gameTick, CONFIG.TICK_INTERVAL);
+        }
+
+        // ============ GAME LOOP ============
+        function gameTick() {
+            const now = Date.now();
+            let needsRender = false;
+
+            gameState.players.forEach((player, playerId) => {
+                player.hands.forEach((hand, handId) => {
+                    // Unfreeze hands
+                    if (hand.frozen && now >= hand.frozenUntil) {
+                        hand.frozen = false;
+                        hand.frozenUntil = 0;
+                        log(`🔥 Player ${playerId + 1}'s hand thawed!`);
+                        needsRender = true;
+                    }
+
+                    // Update potato timers
+                    if (hand.potato) {
+                        const potato = hand.potato;
+                        const heatMod = potato.heatModifier || 1;
+                        const type = POTATO_TYPES[potato.type];
+
+                        // Check if burned
+                        if (now >= potato.burnTime) {
+                            type.burnEffect(playerId, handId);
+                            hand.potato = null;
+                            needsRender = true;
+                            renderAll();
+                            return;
+                        }
+
+                        // Check if became hot
+                        if (!potato.isHot && now >= potato.hotTime) {
+                            potato.isHot = true;
+                            needsRender = true;
+                        }
+                    }
+                });
+            });
+
+            // Only render every 10 ticks (once per second) unless something important changed
+            if (!gameState.tickCount) gameState.tickCount = 0;
+            gameState.tickCount++;
+
+            if (needsRender || gameState.tickCount % 10 === 0) {
+                renderAll();
+            }
+        }
+
+        // ============ ACTIONS ============
+        function buyPotato(playerId, potatoType) {
+            const player = gameState.players[playerId];
+            const type = POTATO_TYPES[potatoType];
+
+            if (player.coins < type.basePrice) {
+                log(`❌ Player ${playerId + 1} doesn't have enough coins!`);
+                return;
+            }
+
+            const emptyHand = player.hands.find(h => !h.potato && !h.frozen);
+            if (!emptyHand) {
+                log(`❌ Player ${playerId + 1} has no free hands!`);
+                return;
+            }
+
+            player.coins -= type.basePrice;
+            const now = Date.now();
+            emptyHand.potato = {
+                id: gameState.nextPotatoId++,
+                type: potatoType,
+                basePrice: type.basePrice,
+                currentValue: type.basePrice,
+                heatModifier: 1,
+                tosses: 0,
+                isHot: false,
+                hotTime: now + type.timeUntilHot,
+                burnTime: now + type.timeUntilBurn,
+                createdAt: now
+            };
+
+            log(`✅ Player ${playerId + 1} bought ${type.name} for ${type.basePrice} PC`);
+            renderAll();
+        }
+
+        function sellPotato(playerId, handId) {
+            const player = gameState.players[playerId];
+            const hand = player.hands[handId];
+
+            if (!hand.potato) return;
+
+            const potato = hand.potato;
+            const sellPrice = potato.currentValue || potato.basePrice;
+
+            player.coins += sellPrice;
+            log(`💰 Player ${playerId + 1} sold ${POTATO_TYPES[potato.type].name} for ${sellPrice} PC`);
+            hand.potato = null;
+
+            renderAll();
+        }
+
+        function tossPotato(fromPlayerId, handId, toPlayerId) {
+            const fromPlayer = gameState.players[fromPlayerId];
+            const toPlayer = gameState.players[toPlayerId];
+            const hand = fromPlayer.hands[handId];
+
+            if (!hand.potato) return;
+
+            const toHand = toPlayer.hands.find(h => !h.potato && !h.frozen);
+            if (!toHand) {
+                log(`❌ Player ${toPlayerId + 1} has no free hands!`);
+                return;
+            }
+
+            const potato = hand.potato;
+            const type = POTATO_TYPES[potato.type];
+
+            // Apply toss effect
+            type.tossEffect(potato);
+
+            // Recalculate timers based on heat modifier
+            const now = Date.now();
+            const timeAlive = now - potato.createdAt;
+            const baseHotTime = type.timeUntilHot / potato.heatModifier;
+            const baseBurnTime = type.timeUntilBurn / potato.heatModifier;
+
+            potato.hotTime = potato.createdAt + baseHotTime;
+            potato.burnTime = potato.createdAt + baseBurnTime;
+
+            // Move potato
+            toHand.potato = potato;
+            hand.potato = null;
+
+            log(`🔄 Player ${fromPlayerId + 1} tossed ${type.name} to Player ${toPlayerId + 1}`);
+            renderAll();
+        }
+
+        function buyHand(playerId) {
+            const player = gameState.players[playerId];
+
+            if (player.coins < CONFIG.HAND_COST) {
+                log(`❌ Player ${playerId + 1} needs ${CONFIG.HAND_COST} PC for a new hand!`);
+                return;
+            }
+
+            player.coins -= CONFIG.HAND_COST;
+            player.hands.push({ potato: null, frozen: false, frozenUntil: 0 });
+
+            log(`✋ Player ${playerId + 1} bought a new hand!`);
+            renderAll();
+        }
+
+        function freezeHand(playerId, handId, duration) {
+            const hand = gameState.players[playerId].hands[handId];
+            hand.frozen = true;
+            hand.frozenUntil = Date.now() + duration;
+            hand.potato = null; // Potato turns to ash
+        }
+
+        // ============ RENDERING ============
+        function renderAll() {
+            gameState.players.forEach((player, id) => {
+                renderPlayer(id);
+            });
+            renderStore();
+        }
+
+        function renderPlayer(playerId) {
+            const player = gameState.players[playerId];
+            const playerEl = document.getElementById(`player${playerId}`);
+
+            playerEl.querySelector('.coins').textContent = player.coins;
+
+            const handsContainer = playerEl.querySelector('.hands-container');
+            handsContainer.innerHTML = player.hands.map((hand, handId) => {
+                const frozenClass = hand.frozen ? 'frozen' : '';
+                const potatoHtml = hand.potato ? renderPotatoInHand(playerId, handId, hand.potato) : '';
+
+                return `
+                    <div class="hand ${frozenClass}">
+                        ${hand.frozen ? `<div style="font-size: 10px; color: #4a90e2;">Thaws in ${Math.ceil((hand.frozenUntil - Date.now()) / 1000)}s</div>` : ''}
+                        ${potatoHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderPotatoInHand(playerId, handId, potato) {
+            const type = POTATO_TYPES[potato.type];
+            const now = Date.now();
+            const timeUntilBurn = Math.max(0, potato.burnTime - now);
+            const hotClass = potato.isHot ? 'hot' : '';
+
+            const otherPlayers = [0, 1, 2, 3].filter(id => id !== playerId);
+
+            return `
+                <div class="potato ${hotClass}">
+                    <div class="potato-name">${type.name}</div>
+                    <div style="font-size: 10px;">Value: ${potato.currentValue || potato.basePrice} PC</div>
+                    <div style="font-size: 10px;">Tosses: ${potato.tosses || 0}</div>
+                    <div class="potato-timer">
+                        ${potato.isHot ? '🔥 HOT! ' : ''}
+                        Burns in: ${(timeUntilBurn / 1000).toFixed(1)}s
+                    </div>
+                    <div class="potato-actions">
+                        <button class="sell-btn" onclick="sellPotato(${playerId}, ${handId})">Sell</button>
+                        <select id="toss-target-${playerId}-${handId}">
+                            ${otherPlayers.map(id => `<option value="${id}">To P${id + 1}</option>`).join('')}
+                        </select>
+                        <button onclick="tossPotato(${playerId}, ${handId}, parseInt(document.getElementById('toss-target-${playerId}-${handId}').value))">Toss</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderStore() {
+            const storeEl = document.getElementById('store-inventory');
+            storeEl.innerHTML = Object.keys(POTATO_TYPES).map(key => {
+                const type = POTATO_TYPES[key];
+                return `
+                    <div class="store-potato">
+                        <div class="store-potato-header">
+                            <div class="store-potato-name">${type.name}</div>
+                            <div class="store-potato-price">${type.basePrice} PC</div>
+                        </div>
+                        <div class="store-potato-desc">${type.description}</div>
+                        <div style="display: flex; gap: 5px;">
+                            ${[0, 1, 2, 3].map(playerId =>
+                                `<button class="buy-btn" onclick="buyPotato(${playerId}, '${key}')">P${playerId + 1}</button>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function log(message) {
+            const logEl = document.getElementById('game-log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.insertBefore(entry, logEl.firstChild);
+
+            // Keep only last 20 entries
+            while (logEl.children.length > 20) {
+                logEl.removeChild(logEl.lastChild);
+            }
+        }
+
+        // ============ START GAME ============
+        initGame();
+    </script>
+</body>
+</html>
