@@ -385,6 +385,7 @@
                         const destroyedPotato = randomHand.potato;
                         log(`💥 BTC destroyed ${POTATO_TYPES[destroyedPotato.type].name}!`);
                         randomHand.potato = null;
+                        cleanupExcessHands(playerId);
                     }
                 },
                 tossEffect: (potato) => {
@@ -440,6 +441,7 @@
                         if (now >= potato.burnTime) {
                             type.burnEffect(playerId, handId);
                             hand.potato = null;
+                            cleanupExcessHands(playerId);
                             needsRender = true;
                             renderAll();
                             return;
@@ -485,6 +487,22 @@
         function getUsedHandCount(playerId) {
             const player = gameState.players[playerId];
             return player.hands.filter(h => h.potato).length;
+        }
+
+        function cleanupExcessHands(playerId) {
+            const player = gameState.players[playerId];
+            const availableSlots = getAvailableHandCount(playerId);
+            const baseHandsNeeded = Math.max(1, player.hands.filter(h => h.potato).length);
+
+            // Remove empty hands beyond what we need (keep at least 1 hand always)
+            while (player.hands.length > baseHandsNeeded && player.hands.length > 1) {
+                const lastHand = player.hands[player.hands.length - 1];
+                if (!lastHand.potato && !lastHand.frozen) {
+                    player.hands.pop();
+                } else {
+                    break;
+                }
+            }
         }
 
         // ============ ACTIONS ============
@@ -552,6 +570,7 @@
             log(`💰 Player ${playerId + 1} sold ${POTATO_TYPES[potato.type].name} for ${sellPrice} PC`);
             hand.potato = null;
 
+            cleanupExcessHands(playerId);
             renderAll();
         }
 
@@ -597,6 +616,7 @@
             hand.potato = null;
 
             log(`🔄 Player ${fromPlayerId + 1} tossed ${type.name} to Player ${toPlayerId + 1}`);
+            cleanupExcessHands(fromPlayerId);
             renderAll();
         }
 
