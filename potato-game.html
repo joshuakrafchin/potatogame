@@ -466,9 +466,8 @@
         }
 
         // ============ HELPER FUNCTIONS ============
-        function getAvailableHandCount(playerId) {
+        function getBonusSlots(playerId) {
             const player = gameState.players[playerId];
-            let baseHands = player.hands.length;
             let bonusSlots = 0;
 
             // Check for potatoes that give extra slots
@@ -481,7 +480,15 @@
                 }
             });
 
-            return baseHands + bonusSlots;
+            return bonusSlots;
+        }
+
+        function getAvailableHandCount(playerId) {
+            const player = gameState.players[playerId];
+            const bonusSlots = getBonusSlots(playerId);
+
+            // Available slots = actual hands + bonus slots from potatoes
+            return player.hands.length + bonusSlots;
         }
 
         function getUsedHandCount(playerId) {
@@ -659,7 +666,7 @@
 
             const availableSlots = getAvailableHandCount(playerId);
             const usedSlots = getUsedHandCount(playerId);
-            const bonusSlots = availableSlots - player.hands.length;
+            const bonusSlots = getBonusSlots(playerId);
 
             const handsContainer = playerEl.querySelector('.hands-container');
 
