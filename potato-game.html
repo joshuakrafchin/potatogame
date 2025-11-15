@@ -340,15 +340,13 @@
                     freezeHand(playerId, handId, 60000); // freeze for 1 minute
                 },
                 tossEffect: (potato, fromPlayerId) => {
-                    // Give 1 PC to the player who tossed it
-                    gameState.players[fromPlayerId].coins += 1;
-                    log(`💰 Player ${fromPlayerId + 1} got 1 PC from tossing Golden Potato!`);
-
                     // Degrade timer by 10%
                     potato.heatModifier = (potato.heatModifier || 1) + 0.1;
                     log(`⏱️ Golden Potato heating up 10% faster!`);
                 },
-                description: "Get 1 PC each toss. Timer degrades 10% per throw."
+                givesExtraSlots: true, // Special property
+                extraSlots: 2,
+                description: "Gives 2 extra potato slots while held. Timer degrades 10% per throw."
             },
 
             HOME_FRY: {
@@ -471,10 +469,13 @@
             let baseHands = player.hands.length;
             let bonusSlots = 0;
 
-            // Check for Home Fry potatoes
+            // Check for potatoes that give extra slots
             player.hands.forEach(hand => {
-                if (hand.potato && hand.potato.type === 'HOME_FRY') {
-                    bonusSlots += POTATO_TYPES.HOME_FRY.extraSlots;
+                if (hand.potato) {
+                    const type = POTATO_TYPES[hand.potato.type];
+                    if (type.givesExtraSlots) {
+                        bonusSlots += type.extraSlots;
+                    }
                 }
             });
 
