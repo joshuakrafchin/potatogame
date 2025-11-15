@@ -629,23 +629,42 @@
 
             const availableSlots = getAvailableHandCount(playerId);
             const usedSlots = getUsedHandCount(playerId);
+            const bonusSlots = availableSlots - player.hands.length;
 
             const handsContainer = playerEl.querySelector('.hands-container');
+
+            // Render actual hands
+            let handsHtml = player.hands.map((hand, handId) => {
+                const frozenClass = hand.frozen ? 'frozen' : '';
+                const potatoHtml = hand.potato ? renderPotatoInHand(playerId, handId, hand.potato) : '';
+
+                return `
+                    <div class="hand ${frozenClass}">
+                        ${hand.frozen ? `<div style="font-size: 10px; color: #4a90e2;">Thaws in ${Math.ceil((hand.frozenUntil - Date.now()) / 1000)}s</div>` : ''}
+                        ${potatoHtml}
+                    </div>
+                `;
+            }).join('');
+
+            // Add bonus slots (virtual hands from potatoes)
+            for (let i = 0; i < bonusSlots; i++) {
+                const bonusHandIndex = player.hands.length + i;
+                // Check if there's a potato in this bonus slot
+                const potatoesInHands = player.hands.filter(h => h.potato).map(h => h.potato);
+                const bonusPotatoIndex = bonusHandIndex - player.hands.length + player.hands.filter(h => h.potato).length;
+
+                handsHtml += `
+                    <div class="hand" style="border: 2px dashed #ffd700; background: #fffbf0;">
+                        <div style="font-size: 10px; color: #999; font-style: italic;">Bonus Slot ${i + 1}</div>
+                    </div>
+                `;
+            }
+
             handsContainer.innerHTML = `
                 <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
-                    Slots: ${usedSlots}/${availableSlots} used
+                    Slots: ${usedSlots}/${availableSlots} used ${bonusSlots > 0 ? `(+${bonusSlots} bonus)` : ''}
                 </div>
-                ${player.hands.map((hand, handId) => {
-                    const frozenClass = hand.frozen ? 'frozen' : '';
-                    const potatoHtml = hand.potato ? renderPotatoInHand(playerId, handId, hand.potato) : '';
-
-                    return `
-                        <div class="hand ${frozenClass}">
-                            ${hand.frozen ? `<div style="font-size: 10px; color: #4a90e2;">Thaws in ${Math.ceil((hand.frozenUntil - Date.now()) / 1000)}s</div>` : ''}
-                            ${potatoHtml}
-                        </div>
-                    `;
-                }).join('')}
+                ${handsHtml}
             `;
         }
 
