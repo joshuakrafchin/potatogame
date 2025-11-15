@@ -330,96 +330,72 @@
         // ============ POTATO TYPES ============
         // Easy to add/modify potato types
         const POTATO_TYPES = {
-            BASIC: {
-                name: "Basic Potato",
-                basePrice: 2,
-                timeUntilHot: 10000, // ms
-                timeUntilBurn: 15000, // ms
-                burnEffect: (playerId, handId) => {
-                    log(`💥 Basic Potato burned Player ${playerId + 1}'s hand!`);
-                    freezeHand(playerId, handId, 60000); // freeze for 1 minute
-                },
-                tossEffect: (potato) => {
-                    potato.heatModifier = (potato.heatModifier || 1) + 0.1;
-                    log(`🌡️ Potato heating up 10% faster!`);
-                },
-                description: "Burns hand for 1 min. Gets 10% hotter each toss."
-            },
-
             GOLDEN: {
                 name: "Golden Potato",
-                basePrice: 1,
-                timeUntilHot: 8000,
-                timeUntilBurn: 12000,
-                burnEffect: (playerId, handId) => {
-                    log(`💰 Golden Potato gave Player ${playerId + 1} a coin before burning!`);
-                    gameState.players[playerId].coins += 1;
-                    freezeHand(playerId, handId, 30000); // freeze for 30 seconds
-                },
-                tossEffect: (potato) => {
-                    potato.tosses = (potato.tosses || 0) + 1;
-                    potato.currentValue = potato.basePrice + potato.tosses;
-                    log(`💎 Golden Potato now worth ${potato.currentValue} PC!`);
-                },
-                description: "Value increases by 1 PC per toss. Gives 1 PC when burns."
-            },
-
-            EXPLODING: {
-                name: "Exploding Potato",
                 basePrice: 3,
-                timeUntilHot: 5000,
-                timeUntilBurn: 8000,
+                timeUntilHot: 10000, // ms
+                timeUntilBurn: 20000, // ms
                 burnEffect: (playerId, handId) => {
-                    log(`💣 BOOM! Exploding Potato froze all of Player ${playerId + 1}'s hands!`);
-                    gameState.players[playerId].hands.forEach((hand, idx) => {
-                        freezeHand(playerId, idx, 45000); // freeze all hands for 45 seconds
-                    });
+                    log(`💰 Golden Potato disappeared!`);
+                    freezeHand(playerId, handId, 60000); // freeze for 1 minute
                 },
-                tossEffect: (potato) => {
-                    potato.heatModifier = (potato.heatModifier || 1) + 0.2;
-                    log(`💣 Exploding Potato heating up 20% faster!`);
+                tossEffect: (potato, fromPlayerId) => {
+                    // Give 1 PC to the player who tossed it
+                    gameState.players[fromPlayerId].coins += 1;
+                    log(`💰 Player ${fromPlayerId + 1} got 1 PC from tossing Golden Potato!`);
+
+                    // Degrade timer by 10%
+                    potato.heatModifier = (potato.heatModifier || 1) + 0.1;
+                    log(`⏱️ Golden Potato heating up 10% faster!`);
                 },
-                description: "Very hot! Freezes ALL hands for 45s when burns."
+                description: "Get 1 PC each toss. Timer degrades 10% per throw."
             },
 
-            ICE: {
-                name: "Ice Potato",
-                basePrice: 4,
-                timeUntilHot: 20000,
-                timeUntilBurn: 30000,
+            HOME_FRY: {
+                name: "Home Fry Potato",
+                basePrice: 8,
+                timeUntilHot: 15000,
+                timeUntilBurn: 25000,
                 burnEffect: (playerId, handId) => {
-                    log(`❄️ Ice Potato melted away harmlessly!`);
-                    // No freeze effect
+                    log(`🍟 Home Fry Potato burned! Player ${playerId + 1} frozen for 3 mins!`);
+                    freezeHand(playerId, handId, 180000); // freeze for 3 minutes
                 },
                 tossEffect: (potato) => {
-                    potato.heatModifier = (potato.heatModifier || 1) - 0.05;
-                    if (potato.heatModifier < 0.5) potato.heatModifier = 0.5;
-                    log(`❄️ Ice Potato cooling down 5%!`);
+                    // Lose 10% value each throw
+                    potato.currentValue = (potato.currentValue || potato.basePrice) * 0.9;
+                    log(`📉 Home Fry value dropped to ${potato.currentValue.toFixed(1)} PC!`);
                 },
-                description: "Cools down when tossed. No hand freeze when burns."
+                givesExtraSlots: true, // Special property
+                extraSlots: 2,
+                description: "Gives 2 extra potato slots while held. Freezes 3 mins. Loses 10% value per throw."
             },
 
-            LUCKY: {
-                name: "Lucky Potato",
+            BTC: {
+                name: "BTC Potato",
                 basePrice: 5,
-                timeUntilHot: 12000,
-                timeUntilBurn: 18000,
+                timeUntilHot: 8000,
+                timeUntilBurn: 15000,
                 burnEffect: (playerId, handId) => {
-                    if (Math.random() < 0.5) {
-                        log(`🍀 Lucky! Player ${playerId + 1} got 3 PC!`);
-                        gameState.players[playerId].coins += 3;
-                    } else {
-                        log(`😓 Unlucky! Player ${playerId + 1}'s hand frozen for 90s!`);
-                        freezeHand(playerId, handId, 90000);
+                    const player = gameState.players[playerId];
+                    log(`💣 BTC Potato EXPLODED! Player ${playerId + 1} frozen for 1 min!`);
+                    freezeHand(playerId, handId, 60000); // freeze for 1 minute
+
+                    // Destroy a random other potato in hand
+                    const otherHands = player.hands.filter((h, idx) => idx !== handId && h.potato && !h.frozen);
+                    if (otherHands.length > 0) {
+                        const randomHand = otherHands[Math.floor(Math.random() * otherHands.length)];
+                        const destroyedPotato = randomHand.potato;
+                        log(`💥 BTC destroyed ${POTATO_TYPES[destroyedPotato.type].name}!`);
+                        randomHand.potato = null;
                     }
                 },
                 tossEffect: (potato) => {
-                    if (Math.random() < 0.3) {
-                        log(`🎰 Lucky toss! Cooled down!`);
-                        potato.heatModifier = (potato.heatModifier || 1) - 0.15;
-                    }
+                    // Gain 20% value each throw
+                    if (!potato.currentValue) potato.currentValue = potato.basePrice;
+                    potato.currentValue *= 1.2;
+                    log(`📈 BTC Potato value increased to ${potato.currentValue.toFixed(1)} PC!`);
                 },
-                description: "50% chance for 3 PC or 90s freeze. Random cool on toss."
+                description: "Gains 20% value per toss. Explosion freezes 1 min & destroys random potato."
             }
         };
 
@@ -489,6 +465,27 @@
             }
         }
 
+        // ============ HELPER FUNCTIONS ============
+        function getAvailableHandCount(playerId) {
+            const player = gameState.players[playerId];
+            let baseHands = player.hands.length;
+            let bonusSlots = 0;
+
+            // Check for Home Fry potatoes
+            player.hands.forEach(hand => {
+                if (hand.potato && hand.potato.type === 'HOME_FRY') {
+                    bonusSlots += POTATO_TYPES.HOME_FRY.extraSlots;
+                }
+            });
+
+            return baseHands + bonusSlots;
+        }
+
+        function getUsedHandCount(playerId) {
+            const player = gameState.players[playerId];
+            return player.hands.filter(h => h.potato).length;
+        }
+
         // ============ ACTIONS ============
         function buyPotato(playerId, potatoType) {
             const player = gameState.players[playerId];
@@ -496,6 +493,14 @@
 
             if (player.coins < type.basePrice) {
                 log(`❌ Player ${playerId + 1} doesn't have enough coins!`);
+                return;
+            }
+
+            const availableSlots = getAvailableHandCount(playerId);
+            const usedSlots = getUsedHandCount(playerId);
+
+            if (usedSlots >= availableSlots) {
+                log(`❌ Player ${playerId + 1} has no free slots! (${usedSlots}/${availableSlots} used)`);
                 return;
             }
 
@@ -547,6 +552,15 @@
 
             if (!hand.potato) return;
 
+            // Check if target player has available slots
+            const availableSlots = getAvailableHandCount(toPlayerId);
+            const usedSlots = getUsedHandCount(toPlayerId);
+
+            if (usedSlots >= availableSlots) {
+                log(`❌ Player ${toPlayerId + 1} has no free slots! (${usedSlots}/${availableSlots} used)`);
+                return;
+            }
+
             const toHand = toPlayer.hands.find(h => !h.potato && !h.frozen);
             if (!toHand) {
                 log(`❌ Player ${toPlayerId + 1} has no free hands!`);
@@ -556,8 +570,8 @@
             const potato = hand.potato;
             const type = POTATO_TYPES[potato.type];
 
-            // Apply toss effect
-            type.tossEffect(potato);
+            // Apply toss effect (pass fromPlayerId for effects that need it)
+            type.tossEffect(potato, fromPlayerId);
 
             // Recalculate timers based on heat modifier
             const now = Date.now();
@@ -612,18 +626,26 @@
 
             playerEl.querySelector('.coins').textContent = player.coins;
 
-            const handsContainer = playerEl.querySelector('.hands-container');
-            handsContainer.innerHTML = player.hands.map((hand, handId) => {
-                const frozenClass = hand.frozen ? 'frozen' : '';
-                const potatoHtml = hand.potato ? renderPotatoInHand(playerId, handId, hand.potato) : '';
+            const availableSlots = getAvailableHandCount(playerId);
+            const usedSlots = getUsedHandCount(playerId);
 
-                return `
-                    <div class="hand ${frozenClass}">
-                        ${hand.frozen ? `<div style="font-size: 10px; color: #4a90e2;">Thaws in ${Math.ceil((hand.frozenUntil - Date.now()) / 1000)}s</div>` : ''}
-                        ${potatoHtml}
-                    </div>
-                `;
-            }).join('');
+            const handsContainer = playerEl.querySelector('.hands-container');
+            handsContainer.innerHTML = `
+                <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
+                    Slots: ${usedSlots}/${availableSlots} used
+                </div>
+                ${player.hands.map((hand, handId) => {
+                    const frozenClass = hand.frozen ? 'frozen' : '';
+                    const potatoHtml = hand.potato ? renderPotatoInHand(playerId, handId, hand.potato) : '';
+
+                    return `
+                        <div class="hand ${frozenClass}">
+                            ${hand.frozen ? `<div style="font-size: 10px; color: #4a90e2;">Thaws in ${Math.ceil((hand.frozenUntil - Date.now()) / 1000)}s</div>` : ''}
+                            ${potatoHtml}
+                        </div>
+                    `;
+                }).join('')}
+            `;
         }
 
         function renderPotatoInHand(playerId, handId, potato) {
