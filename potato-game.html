@@ -505,7 +505,16 @@
                 return;
             }
 
-            const emptyHand = player.hands.find(h => !h.potato && !h.frozen);
+            // Try to find an empty hand
+            let emptyHand = player.hands.find(h => !h.potato && !h.frozen);
+
+            // If no empty hand exists but we have bonus slots available, create a new hand
+            if (!emptyHand && usedSlots < availableSlots) {
+                player.hands.push({ potato: null, frozen: false, frozenUntil: 0 });
+                emptyHand = player.hands[player.hands.length - 1];
+                log(`✋ Player ${playerId + 1} used a bonus slot!`);
+            }
+
             if (!emptyHand) {
                 log(`❌ Player ${playerId + 1} has no free hands!`);
                 return;
