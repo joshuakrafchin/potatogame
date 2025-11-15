@@ -716,10 +716,11 @@
                     </div>
                     <div class="potato-actions">
                         <button class="sell-btn" onclick="sellPotato(${playerId}, ${handId})">Sell</button>
-                        <select id="toss-target-${playerId}-${handId}">
-                            ${otherPlayers.map(id => `<option value="${id}">To P${id + 1}</option>`).join('')}
-                        </select>
-                        <button onclick="tossPotato(${playerId}, ${handId}, parseInt(document.getElementById('toss-target-${playerId}-${handId}').value))">Toss</button>
+                        <div style="display: flex; gap: 3px; flex-wrap: wrap; margin-top: 5px;">
+                            ${otherPlayers.map(id =>
+                                `<button style="flex: 1; min-width: 45px; font-size: 10px; padding: 4px 6px;" onclick="tossPotato(${playerId}, ${handId}, ${id})">→ P${id + 1}</button>`
+                            ).join('')}
+                        </div>
                     </div>
                 </div>
             `;
