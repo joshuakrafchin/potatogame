@@ -325,6 +325,9 @@
             STARTING_COINS: 10,
             HAND_COST: 5,
             TICK_INTERVAL: 100, // milliseconds
+            FARM_INTERVAL: 300000, // 5 minutes in ms
+            BTC_HISTORY_TIME: 600000, // 10 minutes in ms
+            BTC_RESEND_COST_PERCENT: 0.30, // 30% cost
         };
 
         // ============ POTATO TYPES ============
@@ -339,7 +342,7 @@
                     log(`💰 Golden Potato disappeared!`);
                     freezeHand(playerId, handId, 60000); // freeze for 1 minute
                 },
-                tossEffect: (potato, fromPlayerId) => {
+                tossEffect: (potato, fromPlayerId, toPlayerId) => {
                     // Degrade timer by 10%
                     potato.heatModifier = (potato.heatModifier || 1) + 0.1;
                     log(`⏱️ Golden Potato heating up 10% faster!`);
@@ -358,7 +361,7 @@
                     log(`🍟 Home Fry Potato burned! Player ${playerId + 1} frozen for 3 mins!`);
                     freezeHand(playerId, handId, 180000); // freeze for 3 minutes
                 },
-                tossEffect: (potato) => {
+                tossEffect: (potato, fromPlayerId, toPlayerId) => {
                     // Lose 10% value each throw
                     potato.currentValue = (potato.currentValue || potato.basePrice) * 0.9;
                     log(`📉 Home Fry value dropped to ${potato.currentValue.toFixed(1)} PC!`);
@@ -388,13 +391,40 @@
                         cleanupExcessHands(playerId);
                     }
                 },
-                tossEffect: (potato) => {
+                tossEffect: (potato, fromPlayerId, toPlayerId) => {
                     // Gain 20% value each throw
                     if (!potato.currentValue) potato.currentValue = potato.basePrice;
                     potato.currentValue *= 1.2;
                     log(`📈 BTC Potato value increased to ${potato.currentValue.toFixed(1)} PC!`);
                 },
-                description: "Gains 20% value per toss. Explosion freezes 1 min & destroys random potato."
+                description: "Gains 20% value per toss. Costs 30% to resend within 10 mins. Explodes & destroys random potato."
+            },
+
+            PRODUCTIVITY: {
+                name: "Productivity Potato",
+                getDynamicPrice: (playerId) => {
+                    const player = gameState.players[playerId];
+                    return Math.max(8, Math.ceil(player.coins * 0.5));
+                },
+                basePrice: 8, // minimum price
+                timeUntilHot: 12000,
+                timeUntilBurn: 20000,
+                burnEffect: (playerId, handId) => {
+                    const player = gameState.players[playerId];
+                    log(`⚡ Productivity Potato EXPLODED! Farm frozen for 1 hour!`);
+                    player.farmFrozenUntil = Date.now() + 3600000; // 1 hour
+                    freezeHand(playerId, handId, 60000); // freeze hand for 1 minute
+                },
+                tossEffect: (potato, fromPlayerId, toPlayerId) => {
+                    // 25% chance sender gets same potato recipient gets from their farm
+                    if (Math.random() < 0.25) {
+                        const toPlayer = gameState.players[toPlayerId];
+                        toPlayer.pendingProductivityBonus = fromPlayerId;
+                        log(`🎁 Player ${fromPlayerId + 1} will get Player ${toPlayerId + 1}'s next farm potato!`);
+                    }
+                },
+                doublesProduction: true, // Special property for farm
+                description: "Costs 50% of coins (min 8 PC). Doubles farm speed (stacks). 25% chance to get recipient's next farm potato. Explosion freezes farm 1hr."
             }
         };
 
@@ -409,7 +439,11 @@
             gameState.players = [0, 1, 2, 3].map(id => ({
                 id,
                 coins: CONFIG.STARTING_COINS,
-                hands: [{ potato: null, frozen: false, frozenUntil: 0 }]
+                hands: [{ potato: null, frozen: false, frozenUntil: 0 }],
+                farmNextProduction: Date.now() + CONFIG.FARM_INTERVAL,
+                farmFrozenUntil: 0,
+                btcHistory: [], // Track who received BTC potatoes and when
+                pendingProductivityBonus: null // For productivity potato sharing
             }));
 
             renderAll();
@@ -422,6 +456,12 @@
             let needsRender = false;
 
             gameState.players.forEach((player, playerId) => {
+                // Check farm production
+                if (now >= player.farmNextProduction && (player.farmFrozenUntil === 0 || now >= player.farmFrozenUntil)) {
+                    produceFarmPotato(playerId);
+                    needsRender = true;
+                }
+
                 player.hands.forEach((hand, handId) => {
                     // Unfreeze hands
                     if (hand.frozen && now >= hand.frozenUntil) {
@@ -512,13 +552,132 @@
             }
         }
 
+        function getProductivityCount(playerId) {
+            const player = gameState.players[playerId];
+            let count = 0;
+            player.hands.forEach(hand => {
+                if (hand.potato && hand.potato.type === 'PRODUCTIVITY') {
+                    count++;
+                }
+            });
+            return count;
+        }
+
+        function getFarmInterval(playerId) {
+            const productivityCount = getProductivityCount(playerId);
+            // Each productivity potato halves the time (doubles speed)
+            return CONFIG.FARM_INTERVAL / Math.pow(2, productivityCount);
+        }
+
+        function produceFarmPotato(playerId) {
+            const player = gameState.players[playerId];
+            const now = Date.now();
+
+            // Pick random potato type
+            const potatoTypes = Object.keys(POTATO_TYPES);
+            const randomType = potatoTypes[Math.floor(Math.random() * potatoTypes.length)];
+            const type = POTATO_TYPES[randomType];
+
+            log(`🌾 Player ${playerId + 1}'s farm produced a ${type.name}!`);
+
+            // Add to player's hand if space available
+            const availableSlots = getAvailableHandCount(playerId);
+            const usedSlots = getUsedHandCount(playerId);
+
+            if (usedSlots < availableSlots || player.hands.some(h => !h.potato && !h.frozen)) {
+                let emptyHand = player.hands.find(h => !h.potato && !h.frozen);
+                if (!emptyHand && usedSlots < availableSlots) {
+                    player.hands.push({ potato: null, frozen: false, frozenUntil: 0 });
+                    emptyHand = player.hands[player.hands.length - 1];
+                }
+
+                if (emptyHand) {
+                    emptyHand.potato = {
+                        id: gameState.nextPotatoId++,
+                        type: randomType,
+                        basePrice: type.basePrice,
+                        currentValue: type.basePrice,
+                        heatModifier: 1,
+                        tosses: 0,
+                        isHot: false,
+                        hotTime: now + type.timeUntilHot,
+                        burnTime: now + type.timeUntilBurn,
+                        createdAt: now
+                    };
+
+                    // Handle productivity potato bonus
+                    if (player.pendingProductivityBonus !== null) {
+                        const bonusPlayerId = player.pendingProductivityBonus;
+                        const bonusPlayer = gameState.players[bonusPlayerId];
+
+                        // Give same potato to the bonus player
+                        const bonusAvailable = getAvailableHandCount(bonusPlayerId);
+                        const bonusUsed = getUsedHandCount(bonusPlayerId);
+
+                        if (bonusUsed < bonusAvailable || bonusPlayer.hands.some(h => !h.potato && !h.frozen)) {
+                            let bonusHand = bonusPlayer.hands.find(h => !h.potato && !h.frozen);
+                            if (!bonusHand && bonusUsed < bonusAvailable) {
+                                bonusPlayer.hands.push({ potato: null, frozen: false, frozenUntil: 0 });
+                                bonusHand = bonusPlayer.hands[bonusPlayer.hands.length - 1];
+                            }
+
+                            if (bonusHand) {
+                                bonusHand.potato = {
+                                    id: gameState.nextPotatoId++,
+                                    type: randomType,
+                                    basePrice: type.basePrice,
+                                    currentValue: type.basePrice,
+                                    heatModifier: 1,
+                                    tosses: 0,
+                                    isHot: false,
+                                    hotTime: now + type.timeUntilHot,
+                                    burnTime: now + type.timeUntilBurn,
+                                    createdAt: now
+                                };
+                                log(`🎁 Player ${bonusPlayerId + 1} also got a ${type.name} from Productivity bonus!`);
+                            }
+                        }
+
+                        player.pendingProductivityBonus = null;
+                    }
+                }
+            } else {
+                log(`❌ Player ${playerId + 1}'s farm potato wasted - no space!`);
+            }
+
+            // Schedule next production
+            player.farmNextProduction = now + getFarmInterval(playerId);
+        }
+
+        function getBTCSendCost(fromPlayerId, toPlayerId, potatoValue) {
+            const fromPlayer = gameState.players[fromPlayerId];
+            const now = Date.now();
+
+            // Clean up old history
+            fromPlayer.btcHistory = fromPlayer.btcHistory.filter(entry =>
+                now - entry.timestamp < CONFIG.BTC_HISTORY_TIME
+            );
+
+            // Check if recipient sent BTC to this player recently (sending it back)
+            const recentReceive = fromPlayer.btcHistory.find(entry => entry.fromPlayerId === toPlayerId);
+
+            if (recentReceive) {
+                return Math.ceil(potatoValue * CONFIG.BTC_RESEND_COST_PERCENT);
+            }
+
+            return 0;
+        }
+
         // ============ ACTIONS ============
         function buyPotato(playerId, potatoType) {
             const player = gameState.players[playerId];
             const type = POTATO_TYPES[potatoType];
 
-            if (player.coins < type.basePrice) {
-                log(`❌ Player ${playerId + 1} doesn't have enough coins!`);
+            // Get actual price (dynamic for Productivity)
+            const actualPrice = type.getDynamicPrice ? type.getDynamicPrice(playerId) : type.basePrice;
+
+            if (player.coins < actualPrice) {
+                log(`❌ Player ${playerId + 1} doesn't have enough coins! Need ${actualPrice} PC`);
                 return;
             }
 
@@ -545,7 +704,7 @@
                 return;
             }
 
-            player.coins -= type.basePrice;
+            player.coins -= actualPrice;
             const now = Date.now();
             emptyHand.potato = {
                 id: gameState.nextPotatoId++,
@@ -588,6 +747,28 @@
 
             if (!hand.potato) return;
 
+            const potato = hand.potato;
+            const type = POTATO_TYPES[potato.type];
+
+            // Check BTC send cost
+            if (potato.type === 'BTC') {
+                const sendCost = getBTCSendCost(fromPlayerId, toPlayerId, potato.currentValue || potato.basePrice);
+                if (sendCost > 0) {
+                    if (fromPlayer.coins < sendCost) {
+                        log(`❌ Player ${fromPlayerId + 1} needs ${sendCost} PC to send BTC back to Player ${toPlayerId + 1}!`);
+                        return;
+                    }
+                    fromPlayer.coins -= sendCost;
+                    log(`💸 Player ${fromPlayerId + 1} paid ${sendCost} PC to send BTC back!`);
+                }
+
+                // Record this send in recipient's history (they received from fromPlayer)
+                toPlayer.btcHistory.push({
+                    fromPlayerId: fromPlayerId,
+                    timestamp: Date.now()
+                });
+            }
+
             // Check if target player has available slots
             const availableSlots = getAvailableHandCount(toPlayerId);
             const usedSlots = getUsedHandCount(toPlayerId);
@@ -597,17 +778,19 @@
                 return;
             }
 
-            const toHand = toPlayer.hands.find(h => !h.potato && !h.frozen);
+            let toHand = toPlayer.hands.find(h => !h.potato && !h.frozen);
+            if (!toHand && usedSlots < availableSlots) {
+                toPlayer.hands.push({ potato: null, frozen: false, frozenUntil: 0 });
+                toHand = toPlayer.hands[toPlayer.hands.length - 1];
+            }
+
             if (!toHand) {
                 log(`❌ Player ${toPlayerId + 1} has no free hands!`);
                 return;
             }
 
-            const potato = hand.potato;
-            const type = POTATO_TYPES[potato.type];
-
-            // Apply toss effect (pass fromPlayerId for effects that need it)
-            type.tossEffect(potato, fromPlayerId);
+            // Apply toss effect (pass fromPlayerId and toPlayerId for effects that need them)
+            type.tossEffect(potato, fromPlayerId, toPlayerId);
 
             // Restart timers from now with heat modifier applied
             const now = Date.now();
@@ -697,9 +880,23 @@
                 `;
             }
 
+            // Farm status
+            const now = Date.now();
+            const farmFrozen = player.farmFrozenUntil > 0 && now < player.farmFrozenUntil;
+            const timeUntilProduce = farmFrozen
+                ? player.farmFrozenUntil - now
+                : Math.max(0, player.farmNextProduction - now);
+            const productivityCount = getProductivityCount(playerId);
+            const farmStatus = farmFrozen
+                ? `❄️ Frozen: ${Math.ceil(timeUntilProduce / 1000 / 60)}m`
+                : `🌾 Next: ${Math.ceil(timeUntilProduce / 1000)}s ${productivityCount > 0 ? `(${productivityCount}x speed)` : ''}`;
+
             handsContainer.innerHTML = `
                 <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
                     Slots: ${usedSlots}/${availableSlots} used ${bonusSlots > 0 ? `(+${bonusSlots} bonus)` : ''}
+                </div>
+                <div style="font-size: 10px; color: #666; margin-bottom: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">
+                    ${farmStatus}
                 </div>
                 ${handsHtml}
             `;
@@ -716,7 +913,7 @@
             return `
                 <div class="potato ${hotClass}">
                     <div class="potato-name">${type.name}</div>
-                    <div style="font-size: 10px;">Value: ${potato.currentValue || potato.basePrice} PC</div>
+                    <div style="font-size: 10px;">Value: ${(potato.currentValue || potato.basePrice).toFixed(1)} PC</div>
                     <div style="font-size: 10px;">Tosses: ${potato.tosses || 0}</div>
                     <div class="potato-timer">
                         ${potato.isHot ? '🔥 HOT! ' : ''}
@@ -725,9 +922,16 @@
                     <div class="potato-actions">
                         <button class="sell-btn" onclick="sellPotato(${playerId}, ${handId})">Sell</button>
                         <div style="display: flex; gap: 3px; flex-wrap: wrap; margin-top: 5px;">
-                            ${otherPlayers.map(id =>
-                                `<button style="flex: 1; min-width: 45px; font-size: 10px; padding: 4px 6px;" onclick="tossPotato(${playerId}, ${handId}, ${id})">→ P${id + 1}</button>`
-                            ).join('')}
+                            ${otherPlayers.map(id => {
+                                let costText = '';
+                                if (potato.type === 'BTC') {
+                                    const cost = getBTCSendCost(playerId, id, potato.currentValue || potato.basePrice);
+                                    if (cost > 0) {
+                                        costText = ` (-${cost})`;
+                                    }
+                                }
+                                return `<button style="flex: 1; min-width: 45px; font-size: 10px; padding: 4px 6px;" onclick="tossPotato(${playerId}, ${handId}, ${id})">→ P${id + 1}${costText}</button>`;
+                            }).join('')}
                         </div>
                     </div>
                 </div>
@@ -742,13 +946,14 @@
                     <div class="store-potato">
                         <div class="store-potato-header">
                             <div class="store-potato-name">${type.name}</div>
-                            <div class="store-potato-price">${type.basePrice} PC</div>
+                            <div class="store-potato-price">${type.basePrice} PC${type.getDynamicPrice ? ' (min)' : ''}</div>
                         </div>
                         <div class="store-potato-desc">${type.description}</div>
                         <div style="display: flex; gap: 5px;">
-                            ${[0, 1, 2, 3].map(playerId =>
-                                `<button class="buy-btn" onclick="buyPotato(${playerId}, '${key}')">P${playerId + 1}</button>`
-                            ).join('')}
+                            ${[0, 1, 2, 3].map(playerId => {
+                                const price = type.getDynamicPrice ? type.getDynamicPrice(playerId) : type.basePrice;
+                                return `<button class="buy-btn" onclick="buyPotato(${playerId}, '${key}')">P${playerId + 1} (${price})</button>`;
+                            }).join('')}
                         </div>
                     </div>
                 `;
