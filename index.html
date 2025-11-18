@@ -569,15 +569,20 @@
 
         function cleanupExcessHands(playerId) {
             const player = gameState.players[playerId];
-            const availableSlots = getAvailableHandCount(playerId);
-            const baseHandsNeeded = Math.max(1, player.hands.filter(h => h.potato).length);
+            const bonusSlots = getBonusSlots(playerId);
+            const usedSlots = player.hands.filter(h => h.potato).length;
 
-            // Remove empty hands beyond what we need (keep at least 1 hand always)
-            while (player.hands.length > baseHandsNeeded && player.hands.length > 1) {
+            // Maximum hands we should have = used slots (but at least 1)
+            const maxHandsNeeded = Math.max(1, usedSlots);
+
+            // Remove empty hands from the end until we're at the right count
+            while (player.hands.length > maxHandsNeeded) {
                 const lastHand = player.hands[player.hands.length - 1];
                 if (!lastHand.potato && !lastHand.frozen) {
                     player.hands.pop();
+                    log(`🗑️ Player ${playerId + 1} lost an empty hand slot`);
                 } else {
+                    // If the last hand has a potato or is frozen, we can't remove it
                     break;
                 }
             }
