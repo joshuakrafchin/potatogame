@@ -374,13 +374,19 @@
                     freezeHand(playerId, handId, 60000); // freeze for 1 minute
                 },
                 tossEffect: (potato, fromPlayerId, toPlayerId) => {
+                    // Increment toss count
+                    potato.tosses = (potato.tosses || 0) + 1;
+
+                    // Give coins equal to toss count
+                    const fromPlayer = gameState.players[fromPlayerId];
+                    fromPlayer.coins += potato.tosses;
+                    log(`💰 Player ${fromPlayerId + 1} got ${potato.tosses} PC from tossing Golden Potato!`);
+
                     // Degrade timer by 10%
                     potato.heatModifier = (potato.heatModifier || 1) + 0.1;
                     log(`⏱️ Golden Potato heating up 10% faster!`);
                 },
-                givesExtraSlots: true, // Special property
-                extraSlots: 2,
-                description: "Gives 2 extra potato slots while held. Timer degrades 10% per throw."
+                description: "Each toss gives you PC equal to toss count (1st=1 PC, 2nd=2 PC, etc). Timer degrades 10% per throw."
             },
 
             HOME_FRY: {
