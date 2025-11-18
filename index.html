@@ -386,7 +386,7 @@
                     potato.heatModifier = (potato.heatModifier || 1) + 0.1;
                     log(`⏱️ Golden Potato heating up 10% faster!`);
                 },
-                description: "Each toss gives you PC equal to toss count (1st=1 PC, 2nd=2 PC, etc). Timer degrades 10% per throw."
+                description: "Toss to earn PC equal to toss count (1st=1, 2nd=2, 3rd=3...). Heats 10% faster each toss. Burns hand 1 min."
             },
 
             HOME_FRY: {
@@ -405,7 +405,7 @@
                 },
                 givesExtraSlots: true, // Special property
                 extraSlots: 2,
-                description: "Gives 2 extra potato slots while held. Freezes 3 mins. Loses 10% value per throw."
+                description: "2 extra slots while held. Loses 10% value per toss. Burns hand 3 mins."
             },
 
             BTC: {
@@ -434,7 +434,7 @@
                     potato.currentValue *= 1.2;
                     log(`📈 BTC Potato value increased to ${potato.currentValue.toFixed(1)} PC!`);
                 },
-                description: "Gains 20% value per toss. Costs 30% to resend within 10 mins. Explodes & destroys random potato."
+                description: "Gains 20% value per toss. 30% fee to send back within 10 min. Explodes: destroys random potato, freezes hand 1 min."
             },
 
             PRODUCTIVITY: {
@@ -461,7 +461,7 @@
                     }
                 },
                 doublesProduction: true, // Special property for farm
-                description: "Costs 50% of coins (min 8 PC). Doubles farm speed (stacks). 25% chance to get recipient's next farm potato. Explosion freezes farm 1hr."
+                description: "Costs 50% coins (min 8). Doubles farm speed (stacks). 25% chance: get recipient's next farm potato. Explodes: freezes farm 1 hr, hand 1 min."
             }
         };
 
