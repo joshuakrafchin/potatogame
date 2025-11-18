@@ -63,6 +63,37 @@
             color: #333;
         }
 
+        .farm {
+            background: linear-gradient(135deg, #8b4513, #654321);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            color: white;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .farm.frozen {
+            background: linear-gradient(135deg, #4a90e2, #2874d4);
+        }
+
+        .farm-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .farm-timer {
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .farm-speed {
+            font-size: 9px;
+            opacity: 0.8;
+            margin-top: 3px;
+        }
+
         .hands-container {
             margin-bottom: 15px;
         }
@@ -887,16 +918,23 @@
                 ? player.farmFrozenUntil - now
                 : Math.max(0, player.farmNextProduction - now);
             const productivityCount = getProductivityCount(playerId);
-            const farmStatus = farmFrozen
-                ? `❄️ Frozen: ${Math.ceil(timeUntilProduce / 1000 / 60)}m`
-                : `🌾 Next: ${Math.ceil(timeUntilProduce / 1000)}s ${productivityCount > 0 ? `(${productivityCount}x speed)` : ''}`;
+
+            const farmIcon = farmFrozen ? '❄️' : '🌾';
+            const farmTimerText = farmFrozen
+                ? `Frozen for ${Math.ceil(timeUntilProduce / 1000 / 60)} min`
+                : `Next potato in ${Math.ceil(timeUntilProduce / 1000)}s`;
+            const farmSpeedText = !farmFrozen && productivityCount > 0
+                ? `${Math.pow(2, productivityCount)}x Speed (${productivityCount} Productivity)`
+                : '';
 
             handsContainer.innerHTML = `
+                <div class="farm ${farmFrozen ? 'frozen' : ''}">
+                    <div class="farm-icon">${farmIcon} FARM ${farmIcon}</div>
+                    <div class="farm-timer">${farmTimerText}</div>
+                    ${farmSpeedText ? `<div class="farm-speed">${farmSpeedText}</div>` : ''}
+                </div>
                 <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
                     Slots: ${usedSlots}/${availableSlots} used ${bonusSlots > 0 ? `(+${bonusSlots} bonus)` : ''}
-                </div>
-                <div style="font-size: 10px; color: #666; margin-bottom: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">
-                    ${farmStatus}
                 </div>
                 ${handsHtml}
             `;
