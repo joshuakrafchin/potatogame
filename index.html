@@ -726,24 +726,19 @@
             const availableSlots = getAvailableHandCount(playerId);
             const usedSlots = getUsedHandCount(playerId);
 
-            if (usedSlots >= availableSlots) {
-                log(`❌ Player ${playerId + 1} has no free slots! (${usedSlots}/${availableSlots} used)`);
-                return;
-            }
-
-            // Try to find an empty hand
+            // Try to find an empty non-frozen hand
             let emptyHand = player.hands.find(h => !h.potato && !h.frozen);
 
-            // If no empty hand exists but we have bonus slots available, create a new hand
-            if (!emptyHand && usedSlots < availableSlots) {
+            // If no empty hand exists, check if we can create one via bonus slots
+            if (!emptyHand) {
+                if (usedSlots >= availableSlots) {
+                    log(`❌ Player ${playerId + 1} has no free slots! (${usedSlots}/${availableSlots} used)`);
+                    return;
+                }
+                // We have bonus slots available, create a new hand
                 player.hands.push({ potato: null, frozen: false, frozenUntil: 0 });
                 emptyHand = player.hands[player.hands.length - 1];
                 log(`✋ Player ${playerId + 1} used a bonus slot!`);
-            }
-
-            if (!emptyHand) {
-                log(`❌ Player ${playerId + 1} has no free hands!`);
-                return;
             }
 
             player.coins -= actualPrice;
@@ -972,9 +967,12 @@
                         <button class="sell-btn" onclick="sellPotato(${playerId}, ${handId})">Sell</button>
                         <div style="display: flex; gap: 3px; flex-wrap: wrap; margin-top: 5px;">
                             ${otherPlayers.map(id => {
+                                const targetPlayer = gameState.players[id];
                                 const targetAvailable = getAvailableHandCount(id);
                                 const targetUsed = getUsedHandCount(id);
-                                const hasSpace = targetUsed < targetAvailable;
+                                const hasSlotSpace = targetUsed < targetAvailable;
+                                const hasFreeHand = targetPlayer.hands.some(h => !h.potato && !h.frozen);
+                                const canReceive = hasSlotSpace && (hasFreeHand || targetUsed < targetAvailable);
 
                                 let costText = '';
                                 if (potato.type === 'BTC') {
@@ -984,7 +982,7 @@
                                     }
                                 }
 
-                                const disabled = !hasSpace ? 'disabled' : '';
+                                const disabled = !canReceive ? 'disabled' : '';
                                 return `<button ${disabled} style="flex: 1; min-width: 45px; font-size: 10px; padding: 4px 6px;" onclick="tossPotato(${playerId}, ${handId}, ${id})">→ P${id + 1}${costText}</button>`;
                             }).join('')}
                         </div>
