@@ -966,6 +966,10 @@
                         <button class="sell-btn" onclick="sellPotato(${playerId}, ${handId})">Sell</button>
                         <div style="display: flex; gap: 3px; flex-wrap: wrap; margin-top: 5px;">
                             ${otherPlayers.map(id => {
+                                const targetAvailable = getAvailableHandCount(id);
+                                const targetUsed = getUsedHandCount(id);
+                                const hasSpace = targetUsed < targetAvailable;
+
                                 let costText = '';
                                 if (potato.type === 'BTC') {
                                     const cost = getBTCSendCost(playerId, id, potato.currentValue || potato.basePrice);
@@ -973,7 +977,9 @@
                                         costText = ` (-${cost})`;
                                     }
                                 }
-                                return `<button style="flex: 1; min-width: 45px; font-size: 10px; padding: 4px 6px;" onclick="tossPotato(${playerId}, ${handId}, ${id})">→ P${id + 1}${costText}</button>`;
+
+                                const disabled = !hasSpace ? 'disabled' : '';
+                                return `<button ${disabled} style="flex: 1; min-width: 45px; font-size: 10px; padding: 4px 6px;" onclick="tossPotato(${playerId}, ${handId}, ${id})">→ P${id + 1}${costText}</button>`;
                             }).join('')}
                         </div>
                     </div>
