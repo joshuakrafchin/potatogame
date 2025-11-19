@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hot Potato - Player View</title>
+    <title>Hot Potato - My Game</title>
     <style>
         * {
             margin: 0;
@@ -23,59 +23,14 @@
             margin: 0 auto;
         }
 
-        .header {
+        /* Balance Header */
+        .balance-header {
             background: white;
             border-radius: 16px;
             padding: 24px;
             margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-
-        .profile-section {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        .avatar {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #f39c12, #e67e22);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-        }
-
-        .user-info h2 {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 4px;
-        }
-
-        .streak {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .streak .fire {
-            color: #e74c3c;
-        }
-
-        .balance-card {
-            background: linear-gradient(135deg, #ffd700, #ffed4e);
-            border-radius: 12px;
-            padding: 20px;
             text-align: center;
-        }
-
-        .balance-label {
-            font-size: 14px;
-            color: #333;
-            margin-bottom: 8px;
-            font-weight: 600;
         }
 
         .balance-amount {
@@ -85,180 +40,306 @@
             margin-bottom: 8px;
         }
 
-        .balance-usd {
-            font-size: 14px;
-            color: #666;
-        }
-
-        .wallet-section {
-            background: white;
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
-        }
-
-        .wallet-section h2 {
-            font-size: 24px;
-            margin-bottom: 8px;
-            color: #333;
-            text-align: center;
-        }
-
-        .wallet-balance {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-
-        .wallet-balance .amount {
-            font-size: 56px;
-            font-weight: bold;
-            color: #333;
-            margin: 12px 0;
-        }
-
-        .wallet-balance .label {
+        .balance-label {
             font-size: 14px;
             color: #666;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
-        .wallet-address-container {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-        }
-
-        .wallet-address-container h4 {
-            font-size: 13px;
-            color: #666;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .address-display {
+        .coin-actions {
             display: flex;
-            align-items: center;
             gap: 12px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 12px;
+            margin-top: 16px;
         }
 
-        .address-text {
+        .coin-btn {
             flex: 1;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            color: #333;
-            word-break: break-all;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .copy-btn {
+        .coin-btn.buy {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .coin-btn.free {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .coin-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Farm Section */
+        .farm-section {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .farm-section h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .farm-display {
+            background: linear-gradient(135deg, #8b4513, #654321);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .farm-status {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .farm-timer {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .farm-speed {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        /* Hand Slots */
+        .slots-section {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .slots-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .slots-header h3 {
+            font-size: 20px;
+            color: #333;
+        }
+
+        .add-slot-btn {
             background: #667eea;
             color: white;
             border: none;
             padding: 8px 16px;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
-            white-space: nowrap;
             transition: all 0.2s;
         }
 
-        .copy-btn:hover {
+        .add-slot-btn:hover {
             background: #5568d3;
         }
 
-        .exchange-link {
-            display: block;
+        .slots-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .slot {
+            background: #f8f9fa;
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 20px;
             text-align: center;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 14px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            margin-bottom: 20px;
-            transition: all 0.2s;
-        }
-
-        .exchange-link:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .privacy-note {
-            background: #f0f7ff;
-            border-left: 4px solid #667eea;
-            padding: 12px 16px;
-            border-radius: 4px;
-            margin-bottom: 24px;
-        }
-
-        .privacy-note p {
-            font-size: 13px;
-            color: #555;
-            margin: 0;
-            line-height: 1.5;
-        }
-
-        .privacy-note .icon {
-            color: #667eea;
-            margin-right: 4px;
-        }
-
-        .divider {
+            min-height: 120px;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 16px;
-            margin: 24px 0;
+            justify-content: center;
+            position: relative;
         }
 
-        .divider::before,
-        .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: #ddd;
+        .slot.has-potato {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            border: 2px solid #f39c12;
         }
 
-        .divider span {
-            color: #999;
+        .slot.frozen {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border: 2px solid #2196f3;
+        }
+
+        .slot.locked {
+            background: #e0e0e0;
+            border: 2px solid #bdbdbd;
+            cursor: pointer;
+        }
+
+        .slot.locked:hover {
+            background: #d5d5d5;
+        }
+
+        .potato-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .potato-timer {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .potato-value {
             font-size: 14px;
+            color: #e67e22;
             font-weight: 600;
         }
 
-        .login-prompt {
-            text-align: center;
+        .heat-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 20px;
         }
 
-        .login-prompt h3 {
-            font-size: 18px;
-            margin-bottom: 12px;
-            color: #333;
+        .frozen-timer {
+            font-size: 13px;
+            color: #2196f3;
+            font-weight: 600;
         }
 
-        .login-prompt p {
+        .lock-icon {
+            font-size: 32px;
+            opacity: 0.5;
+            margin-bottom: 8px;
+        }
+
+        .unlock-text {
+            font-size: 13px;
             color: #666;
-            margin-bottom: 20px;
-            font-size: 14px;
         }
 
-        .login-buttons {
+        /* Store Section */
+        .store-section {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .store-section h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .potato-list {
             display: flex;
             flex-direction: column;
             gap: 12px;
         }
 
-        .login-btn {
+        .potato-item {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+
+        .potato-item:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .potato-info {
+            flex: 1;
+        }
+
+        .potato-info h4 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .potato-info p {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .buy-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .buy-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .buy-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .cta-buttons {
+            display: flex;
+            flex-direction: column;
             gap: 12px;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        .cta-btn {
             padding: 14px 24px;
             border: none;
             border-radius: 8px;
@@ -268,422 +349,252 @@
             transition: all 0.2s;
         }
 
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .login-btn.google {
-            background: white;
-            color: #333;
-            border: 2px solid #ddd;
-        }
-
-        .login-btn.facebook {
-            background: #1877f2;
-            color: white;
-        }
-
-        .login-btn.linkedin {
-            background: #0077b5;
-            color: white;
-        }
-
-        .rewards-section {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-
-        .rewards-section h3 {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 16px;
-        }
-
-        .daily-reward {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            border-radius: 12px;
-            padding: 20px;
-            color: white;
-            margin-bottom: 16px;
-        }
-
-        .daily-reward h4 {
-            font-size: 18px;
-            margin-bottom: 8px;
-        }
-
-        .daily-reward p {
-            font-size: 14px;
-            opacity: 0.9;
-            margin-bottom: 12px;
-        }
-
-        .claim-btn {
-            background: white;
-            color: #3498db;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .claim-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .claim-btn:disabled {
-            background: #95a5a6;
-            color: white;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .actions-section {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-
-        .actions-section h3 {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 16px;
-        }
-
-        .action-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .action-btn {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            background: white;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .action-btn:hover {
-            border-color: #667eea;
-            background: #f8f9ff;
-        }
-
-        .action-btn-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .action-icon {
-            font-size: 24px;
-        }
-
-        .action-text h4 {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 4px;
-        }
-
-        .action-text p {
-            font-size: 13px;
-            color: #666;
-        }
-
-        .action-arrow {
-            font-size: 20px;
-            color: #999;
-        }
-
-        .game-status {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-
-        .game-status h3 {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 16px;
-        }
-
-        .status-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .status-item:last-child {
-            border-bottom: none;
-        }
-
-        .status-label {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .status-value {
-            color: #333;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .play-btn {
-            width: 100%;
+        .cta-btn.primary {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            border: none;
-            padding: 16px;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 16px;
-            transition: all 0.2s;
         }
 
-        .play-btn:hover {
+        .cta-btn.secondary {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .cta-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
-        .logged-out {
+        /* Show/Hide States */
+        .show-when-empty {
             display: block;
         }
 
-        .logged-in {
+        .show-when-playing {
             display: none;
         }
 
-        body.authenticated .logged-out {
+        body.has-slots .show-when-empty {
             display: none;
         }
 
-        body.authenticated .logged-in {
+        body.has-slots .show-when-playing {
             display: block;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Wallet Section (shown when not logged in) -->
-        <div class="wallet-section logged-out">
-            <h2>🥔 Your Potato Coin Wallet</h2>
-
-            <div class="wallet-balance">
-                <div class="label">Balance</div>
-                <div class="amount">0</div>
-                <div class="label">Potato Coins</div>
-            </div>
-
-            <div class="wallet-address-container">
-                <h4>Your Wallet Address</h4>
-                <div class="address-display">
-                    <div class="address-text" id="wallet-address">PC1A2b3C4d5E6f7G8h9I0jKlMnOpQrStUvWx</div>
-                    <button class="copy-btn" onclick="copyAddress()">Copy</button>
-                </div>
-            </div>
-
-            <a href="#" class="exchange-link" onclick="openExchange(); return false;">
-                💱 Exchange USD/USDC → Potato Coins
-            </a>
-
-            <div class="privacy-note">
-                <p><span class="icon">🔒</span> <strong>Stay totally anonymous.</strong> Transfer crypto to your wallet address to play without any personal information.</p>
-            </div>
-
-            <div class="divider">
-                <span>OR</span>
-            </div>
-
-            <div class="login-prompt">
-                <h3>Play for FREE with Social Login</h3>
-                <p>Get 10 Potato Coins instantly + daily rewards</p>
-                <div class="login-buttons">
-                    <button class="login-btn google" onclick="login('google')">
-                        <span>🔍</span>
-                        Continue with Google
-                    </button>
-                    <button class="login-btn facebook" onclick="login('facebook')">
-                        <span>📘</span>
-                        Continue with Facebook
-                    </button>
-                    <button class="login-btn linkedin" onclick="login('linkedin')">
-                        <span>💼</span>
-                        Continue with LinkedIn
-                    </button>
-                </div>
+        <!-- Balance Header -->
+        <div class="balance-header">
+            <div class="balance-amount" id="balance">0</div>
+            <div class="balance-label">Potato Coins</div>
+            <div class="coin-actions">
+                <button class="coin-btn buy" onclick="buyCoins()">💳 Buy Coins</button>
+                <button class="coin-btn free" onclick="getFreCoins()">🎁 Get Free Coins</button>
             </div>
         </div>
 
-        <!-- Player Header (shown when logged in) -->
-        <div class="header logged-in">
-            <div class="profile-section">
-                <div class="avatar">🥔</div>
-                <div class="user-info">
-                    <h2 id="username">Player Name</h2>
-                    <div class="streak">
-                        <span class="fire">🔥</span> <span id="streak-days">5</span> day streak
+        <!-- Empty State (shown when no slots) -->
+        <div class="empty-state show-when-empty">
+            <h3>🥔 Ready to Play Hot Potato?</h3>
+            <p>To start playing, you need at least one potato slot. You have two options:</p>
+            <div class="cta-buttons">
+                <button class="cta-btn primary" onclick="buySlot()">
+                    Buy Your First Slot (5 PC)
+                </button>
+                <button class="cta-btn secondary" onclick="socialLogin()">
+                    Social Login = FREE Slot + 10 PC
+                </button>
+            </div>
+            <p style="margin-top: 20px; font-size: 14px;">
+                💡 Need Potato Coins? Transfer crypto to your wallet or use the exchange above.
+            </p>
+        </div>
+
+        <!-- Farm Section (shown when playing) -->
+        <div class="farm-section show-when-playing">
+            <h3>🌾 Your Farm</h3>
+            <div class="farm-display">
+                <div class="farm-status">Next Potato</div>
+                <div class="farm-timer" id="farm-timer">30s</div>
+                <div class="farm-speed">Base production speed</div>
+            </div>
+        </div>
+
+        <!-- Hand Slots (shown when playing) -->
+        <div class="slots-section show-when-playing">
+            <div class="slots-header">
+                <h3>Your Potato Slots</h3>
+                <button class="add-slot-btn" onclick="buySlot()">+ Add Slot (5 PC)</button>
+            </div>
+            <div class="slots-grid" id="slots-grid">
+                <!-- Slots will be dynamically generated -->
+            </div>
+        </div>
+
+        <!-- Store Section (shown when playing) -->
+        <div class="store-section show-when-playing">
+            <h3>🏪 Potato Store</h3>
+            <div class="potato-list">
+                <div class="potato-item">
+                    <div class="potato-info">
+                        <h4>Golden Potato</h4>
+                        <p>Earn PC equal to toss count. Heats 10% faster each toss.</p>
                     </div>
+                    <button class="buy-btn" onclick="buyPotato('golden')">Buy 3 PC</button>
                 </div>
-            </div>
-            <div class="balance-card">
-                <div class="balance-label">POTATO COINS</div>
-                <div class="balance-amount" id="balance">127</div>
-                <div class="balance-usd">≈ $12.70 USD</div>
-            </div>
-        </div>
-
-        <!-- Daily Rewards (shown when logged in) -->
-        <div class="rewards-section logged-in">
-            <h3>Daily Rewards</h3>
-            <div class="daily-reward">
-                <h4>🎁 Daily Login Bonus</h4>
-                <p>Come back every day to earn 10 Potato Coins!</p>
-                <button class="claim-btn" id="claim-btn" onclick="claimReward()">Claim 10 PC</button>
-            </div>
-        </div>
-
-        <!-- Actions (shown when logged in) -->
-        <div class="actions-section logged-in">
-            <h3>Get More Coins</h3>
-            <div class="action-buttons">
-                <div class="action-btn" onclick="buyCoins()">
-                    <div class="action-btn-content">
-                        <div class="action-icon">💳</div>
-                        <div class="action-text">
-                            <h4>Buy Potato Coins</h4>
-                            <p>Purchase with USD via card or PayPal</p>
-                        </div>
+                <div class="potato-item">
+                    <div class="potato-info">
+                        <h4>Home Fry Potato</h4>
+                        <p>Gives 2 extra slots. Loses 10% value per toss. Burns hand 3 min.</p>
                     </div>
-                    <div class="action-arrow">→</div>
+                    <button class="buy-btn" onclick="buyPotato('homefry')">Buy 8 PC</button>
                 </div>
-                <div class="action-btn" onclick="transferWallet()">
-                    <div class="action-btn-content">
-                        <div class="action-icon">👛</div>
-                        <div class="action-text">
-                            <h4>Transfer from Wallet</h4>
-                            <p>Connect crypto wallet to transfer funds</p>
-                        </div>
+                <div class="potato-item">
+                    <div class="potato-info">
+                        <h4>BTC Potato</h4>
+                        <p>Gains 20% value per toss. 30% fee to resend. Explodes: destroys random potato.</p>
                     </div>
-                    <div class="action-arrow">→</div>
+                    <button class="buy-btn" onclick="buyPotato('btc')">Buy 5 PC</button>
+                </div>
+                <div class="potato-item">
+                    <div class="potato-info">
+                        <h4>Productivity Potato</h4>
+                        <p>Doubles farm speed (stacks). 25% chance to steal recipient's next farm potato.</p>
+                    </div>
+                    <button class="buy-btn" onclick="buyPotato('productivity')" id="productivity-btn">Buy 8 PC</button>
                 </div>
             </div>
-        </div>
-
-        <!-- Game Status (shown when logged in) -->
-        <div class="game-status logged-in">
-            <h3>Your Game Stats</h3>
-            <div class="status-item">
-                <span class="status-label">Active Games</span>
-                <span class="status-value">2</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Potatoes Held</span>
-                <span class="status-value">3</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Farm Production</span>
-                <span class="status-value">Next in 15s</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Total Tosses</span>
-                <span class="status-value">47</span>
-            </div>
-            <button class="play-btn" onclick="playGame()">🎮 Join Game</button>
         </div>
     </div>
 
     <script>
-        // Mock authentication state
-        let isAuthenticated = false;
-        let userBalance = 0;
-        let dailyRewardClaimed = false;
+        // Mock game state
+        let gameState = {
+            balance: 0,
+            slots: [],
+            hasFreSlot: false,
+            farmNextProduction: null,
+            farmInterval: 30000 // 30 seconds
+        };
 
-        function copyAddress() {
-            const address = document.getElementById('wallet-address').textContent;
-            navigator.clipboard.writeText(address).then(() => {
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                }, 2000);
+        function updateUI() {
+            document.getElementById('balance').textContent = gameState.balance;
+
+            // Update productivity potato price (50% of coins, min 8)
+            const productivityPrice = Math.max(8, Math.ceil(gameState.balance * 0.5));
+            document.getElementById('productivity-btn').textContent = `Buy ${productivityPrice} PC`;
+
+            // Update slots display
+            const slotsGrid = document.getElementById('slots-grid');
+            slotsGrid.innerHTML = '';
+
+            gameState.slots.forEach((slot, index) => {
+                const slotDiv = document.createElement('div');
+
+                if (slot.locked) {
+                    slotDiv.className = 'slot locked';
+                    slotDiv.innerHTML = `
+                        <div class="lock-icon">🔒</div>
+                        <div class="unlock-text">Click to unlock (5 PC)</div>
+                    `;
+                    slotDiv.onclick = () => buySlot();
+                } else if (slot.frozen) {
+                    slotDiv.className = 'slot frozen';
+                    slotDiv.innerHTML = `
+                        <div>❄️</div>
+                        <div class="frozen-timer">Frozen: ${slot.frozenTime}</div>
+                    `;
+                } else if (slot.potato) {
+                    slotDiv.className = 'slot has-potato';
+                    const heatIcon = slot.potato.heat > 66 ? '🔥' : slot.potato.heat > 33 ? '🌡️' : '';
+                    slotDiv.innerHTML = `
+                        ${heatIcon ? `<div class="heat-indicator">${heatIcon}</div>` : ''}
+                        <div class="potato-name">${slot.potato.name}</div>
+                        <div class="potato-timer">Burns in ${slot.potato.timeLeft}</div>
+                        <div class="potato-value">${slot.potato.value} PC</div>
+                    `;
+                } else {
+                    slotDiv.className = 'slot';
+                    slotDiv.innerHTML = `<div style="opacity: 0.5;">Empty</div>`;
+                }
+
+                slotsGrid.appendChild(slotDiv);
             });
+
+            // Show/hide sections
+            if (gameState.slots.length > 0) {
+                document.body.classList.add('has-slots');
+            } else {
+                document.body.classList.remove('has-slots');
+            }
         }
 
-        function openExchange() {
-            alert('Exchange modal would open here.\n\nSupported conversions:\n- USD → Potato Coins\n- USDC → Potato Coins\n- ETH → Potato Coins\n\nRate: 1 PC = $0.10 USD');
-        }
-
-        function login(provider) {
-            console.log(`Logging in with ${provider}...`);
-
-            // Simulate login
-            isAuthenticated = true;
-            document.body.classList.add('authenticated');
-
-            // Set initial balance based on login type
-            userBalance = 10; // First time login bonus
-            document.getElementById('username').textContent = `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`;
-
-            updateBalance();
-
-            // Show success message
-            alert(`Welcome! You've received ${userBalance} Potato Coins!`);
-        }
-
-        function claimReward() {
-            if (dailyRewardClaimed) {
-                alert('You\'ve already claimed your daily reward! Come back tomorrow.');
+        function buySlot() {
+            if (gameState.balance < 5) {
+                alert('Not enough Potato Coins! You need 5 PC to buy a slot.\n\nBuy coins or get free coins to continue.');
                 return;
             }
 
-            userBalance += 10;
-            dailyRewardClaimed = true;
-            updateBalance();
-
-            const claimBtn = document.getElementById('claim-btn');
-            claimBtn.disabled = true;
-            claimBtn.textContent = 'Claimed! ✓';
-
-            alert('You earned 10 Potato Coins! 🎉');
+            gameState.balance -= 5;
+            gameState.slots.push({ locked: false, potato: null, frozen: false });
+            updateUI();
+            alert('Slot purchased! You now have ' + gameState.slots.length + ' slot(s).');
         }
 
-        function updateBalance() {
-            document.getElementById('balance').textContent = userBalance;
+        function socialLogin() {
+            alert('Social Login Modal\n\nChoose your provider:\n- Google\n- Facebook\n- LinkedIn\n\nGet FREE slot + 10 Potato Coins!');
+
+            // Simulate social login
+            gameState.balance = 10;
+            gameState.hasFreSlot = true;
+            gameState.slots.push({ locked: false, potato: null, frozen: false });
+            updateUI();
+        }
+
+        function buyPotato(type) {
+            const prices = {
+                golden: 3,
+                homefry: 8,
+                btc: 5,
+                productivity: Math.max(8, Math.ceil(gameState.balance * 0.5))
+            };
+
+            const price = prices[type];
+
+            if (gameState.balance < price) {
+                alert(`Not enough Potato Coins! You need ${price} PC.`);
+                return;
+            }
+
+            const emptySlot = gameState.slots.find(s => !s.potato && !s.frozen);
+            if (!emptySlot) {
+                alert('No empty slots available! Buy a new slot or wait for a potato to burn.');
+                return;
+            }
+
+            gameState.balance -= price;
+            emptySlot.potato = {
+                name: type.charAt(0).toUpperCase() + type.slice(1) + ' Potato',
+                value: price,
+                heat: 0,
+                timeLeft: '20s'
+            };
+
+            updateUI();
+            alert(`${emptySlot.potato.name} purchased!`);
         }
 
         function buyCoins() {
-            alert('Buy Coins modal would open here.\n\nPricing:\n- 100 PC = $10\n- 500 PC = $45\n- 1000 PC = $80');
+            alert('Buy Coins Modal\n\nPricing:\n- 100 PC = $10\n- 500 PC = $45\n- 1000 PC = $80\n\nAccepting:\n- Credit/Debit Cards\n- PayPal\n- Crypto (ETH, USDC)');
         }
 
-        function transferWallet() {
-            alert('Wallet connection modal would open here.\n\nSupported wallets:\n- MetaMask\n- WalletConnect\n- Coinbase Wallet');
+        function getFreeCoins() {
+            alert('Get Free Coins\n\nOptions:\n1. Daily Login Bonus (10 PC/day)\n2. Invite Friends (20 PC per friend)\n3. Social Login (10 PC first time)\n4. Watch Ads (5 PC per ad)\n5. Transfer from your crypto wallet');
         }
 
-        function playGame() {
-            window.location.href = '/index.html';
-        }
-
-        // Simulate authenticated state for demo
-        // Uncomment to see logged-in view:
-        // setTimeout(() => login('google'), 500);
+        // Initialize
+        updateUI();
     </script>
 </body>
 </html>
