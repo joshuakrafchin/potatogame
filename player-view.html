@@ -19,8 +19,32 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 1200px;
             margin: 0 auto;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* Balance Header */
@@ -98,24 +122,39 @@
             background: linear-gradient(135deg, #8b4513, #654321);
             border-radius: 12px;
             padding: 20px;
-            text-align: center;
             color: white;
         }
 
         .farm-status {
             font-size: 16px;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            text-align: center;
         }
 
-        .farm-timer {
-            font-size: 32px;
+        .farm-progress-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            height: 40px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .farm-progress-bar {
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            height: 100%;
+            transition: width 0.5s linear;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
             font-weight: bold;
-            margin-bottom: 8px;
         }
 
         .farm-speed {
             font-size: 13px;
             opacity: 0.8;
+            text-align: center;
         }
 
         /* Hand Slots */
@@ -350,8 +389,9 @@
         }
 
         .cta-btn.primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
+            background: white;
+            color: #667eea;
+            border: 3px solid #667eea;
         }
 
         .cta-btn.secondary {
@@ -390,7 +430,7 @@
             <div class="balance-label">Potato Coins</div>
             <div class="coin-actions">
                 <button class="coin-btn buy" onclick="buyCoins()">💳 Buy Coins</button>
-                <button class="coin-btn free" onclick="getFreCoins()">🎁 Get Free Coins</button>
+                <button class="coin-btn free" onclick="getFreeCoins()">🎁 Get Free Coins</button>
             </div>
         </div>
 
@@ -411,58 +451,69 @@
             </p>
         </div>
 
-        <!-- Farm Section (shown when playing) -->
-        <div class="farm-section show-when-playing">
-            <h3>🌾 Your Farm</h3>
-            <div class="farm-display">
-                <div class="farm-status">Next Potato</div>
-                <div class="farm-timer" id="farm-timer">30s</div>
-                <div class="farm-speed">Base production speed</div>
-            </div>
-        </div>
+        <!-- Main Game Layout (shown when playing) -->
+        <div class="main-layout show-when-playing">
+            <div class="left-column">
+                <!-- Farm Section -->
+                <div class="farm-section">
+                    <h3>🌾 Your Farm</h3>
+                    <div class="farm-display">
+                        <div class="farm-status">Next Potato</div>
+                        <div class="farm-progress-container">
+                            <div class="farm-progress-bar" id="farm-progress-bar" style="width: 0%;">
+                                <span id="farm-timer">30s</span>
+                            </div>
+                        </div>
+                        <div class="farm-speed">Base production speed</div>
+                    </div>
+                </div>
 
-        <!-- Hand Slots (shown when playing) -->
-        <div class="slots-section show-when-playing">
-            <div class="slots-header">
-                <h3>Your Potato Slots</h3>
-                <button class="add-slot-btn" onclick="buySlot()">+ Add Slot (5 PC)</button>
+                <!-- Hand Slots -->
+                <div class="slots-section">
+                    <div class="slots-header">
+                        <h3>Your Potato Slots</h3>
+                        <button class="add-slot-btn" onclick="buySlot()">+ Add Slot (5 PC)</button>
+                    </div>
+                    <div class="slots-grid" id="slots-grid">
+                        <!-- Slots will be dynamically generated -->
+                    </div>
+                </div>
             </div>
-            <div class="slots-grid" id="slots-grid">
-                <!-- Slots will be dynamically generated -->
-            </div>
-        </div>
 
-        <!-- Store Section (shown when playing) -->
-        <div class="store-section show-when-playing">
-            <h3>🏪 Potato Store</h3>
-            <div class="potato-list">
-                <div class="potato-item">
-                    <div class="potato-info">
-                        <h4>Golden Potato</h4>
-                        <p>Earn PC equal to toss count. Heats 10% faster each toss.</p>
+            <div class="right-column">
+                <!-- Store Section -->
+                <div class="store-section">
+                    <h3>🏪 Potato Store</h3>
+                    <div class="potato-list">
+                        <div class="potato-item">
+                            <div class="potato-info">
+                                <h4>Golden Potato</h4>
+                                <p>Earn PC equal to toss count. Heats 10% faster each toss.</p>
+                            </div>
+                            <button class="buy-btn" onclick="buyPotato('golden')">Buy 3 PC</button>
+                        </div>
+                        <div class="potato-item">
+                            <div class="potato-info">
+                                <h4>Home Fry Potato</h4>
+                                <p>Gives 2 extra slots. Loses 10% value per toss. Burns hand 3 min.</p>
+                            </div>
+                            <button class="buy-btn" onclick="buyPotato('homefry')">Buy 8 PC</button>
+                        </div>
+                        <div class="potato-item">
+                            <div class="potato-info">
+                                <h4>BTC Potato</h4>
+                                <p>Gains 20% value per toss. 30% fee to resend. Explodes: destroys random potato.</p>
+                            </div>
+                            <button class="buy-btn" onclick="buyPotato('btc')">Buy 5 PC</button>
+                        </div>
+                        <div class="potato-item">
+                            <div class="potato-info">
+                                <h4>Productivity Potato</h4>
+                                <p>Doubles farm speed (stacks). 25% chance to steal recipient's next farm potato.</p>
+                            </div>
+                            <button class="buy-btn" onclick="buyPotato('productivity')" id="productivity-btn">Buy 8 PC</button>
+                        </div>
                     </div>
-                    <button class="buy-btn" onclick="buyPotato('golden')">Buy 3 PC</button>
-                </div>
-                <div class="potato-item">
-                    <div class="potato-info">
-                        <h4>Home Fry Potato</h4>
-                        <p>Gives 2 extra slots. Loses 10% value per toss. Burns hand 3 min.</p>
-                    </div>
-                    <button class="buy-btn" onclick="buyPotato('homefry')">Buy 8 PC</button>
-                </div>
-                <div class="potato-item">
-                    <div class="potato-info">
-                        <h4>BTC Potato</h4>
-                        <p>Gains 20% value per toss. 30% fee to resend. Explodes: destroys random potato.</p>
-                    </div>
-                    <button class="buy-btn" onclick="buyPotato('btc')">Buy 5 PC</button>
-                </div>
-                <div class="potato-item">
-                    <div class="potato-info">
-                        <h4>Productivity Potato</h4>
-                        <p>Doubles farm speed (stacks). 25% chance to steal recipient's next farm potato.</p>
-                    </div>
-                    <button class="buy-btn" onclick="buyPotato('productivity')" id="productivity-btn">Buy 8 PC</button>
                 </div>
             </div>
         </div>
@@ -477,6 +528,34 @@
             farmNextProduction: null,
             farmInterval: 30000 // 30 seconds
         };
+
+        let farmTimer = null;
+
+        function updateFarmTimer() {
+            if (!gameState.farmNextProduction) {
+                gameState.farmNextProduction = Date.now() + gameState.farmInterval;
+            }
+
+            const now = Date.now();
+            const remaining = Math.max(0, gameState.farmNextProduction - now);
+            const seconds = Math.ceil(remaining / 1000);
+            const progress = ((gameState.farmInterval - remaining) / gameState.farmInterval) * 100;
+
+            document.getElementById('farm-timer').textContent = seconds + 's';
+            document.getElementById('farm-progress-bar').style.width = progress + '%';
+
+            if (remaining <= 0) {
+                // Farm produced a potato!
+                gameState.farmNextProduction = Date.now() + gameState.farmInterval;
+                alert('🌾 Your farm produced a potato!');
+            }
+        }
+
+        function startFarmTimer() {
+            if (farmTimer) clearInterval(farmTimer);
+            gameState.farmNextProduction = Date.now() + gameState.farmInterval;
+            farmTimer = setInterval(updateFarmTimer, 100);
+        }
 
         function updateUI() {
             document.getElementById('balance').textContent = gameState.balance;
@@ -525,8 +604,15 @@
             // Show/hide sections
             if (gameState.slots.length > 0) {
                 document.body.classList.add('has-slots');
+                if (!farmTimer) {
+                    startFarmTimer();
+                }
             } else {
                 document.body.classList.remove('has-slots');
+                if (farmTimer) {
+                    clearInterval(farmTimer);
+                    farmTimer = null;
+                }
             }
         }
 
