@@ -90,25 +90,162 @@
             color: #666;
         }
 
-        .login-prompt {
+        .wallet-section {
             background: white;
             border-radius: 16px;
             padding: 32px;
-            text-align: center;
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
             margin-bottom: 20px;
         }
 
-        .login-prompt h2 {
+        .wallet-section h2 {
             font-size: 24px;
+            margin-bottom: 8px;
+            color: #333;
+            text-align: center;
+        }
+
+        .wallet-balance {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .wallet-balance .amount {
+            font-size: 56px;
+            font-weight: bold;
+            color: #333;
+            margin: 12px 0;
+        }
+
+        .wallet-balance .label {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .wallet-address-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .wallet-address-container h4 {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .address-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .address-text {
+            flex: 1;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #333;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .exchange-link {
+            display: block;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .exchange-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .privacy-note {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 24px;
+        }
+
+        .privacy-note p {
+            font-size: 13px;
+            color: #555;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .privacy-note .icon {
+            color: #667eea;
+            margin-right: 4px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .divider span {
+            color: #999;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .login-prompt {
+            text-align: center;
+        }
+
+        .login-prompt h3 {
+            font-size: 18px;
             margin-bottom: 12px;
             color: #333;
         }
 
         .login-prompt p {
             color: #666;
-            margin-bottom: 24px;
-            font-size: 16px;
+            margin-bottom: 20px;
+            font-size: 14px;
         }
 
         .login-buttons {
@@ -149,11 +286,6 @@
 
         .login-btn.linkedin {
             background: #0077b5;
-            color: white;
-        }
-
-        .login-btn.guest {
-            background: #95a5a6;
             color: white;
         }
 
@@ -349,27 +481,53 @@
 </head>
 <body>
     <div class="container">
-        <!-- Login Prompt (shown when not logged in) -->
-        <div class="login-prompt logged-out">
-            <h2>🥔 Welcome to Hot Potato!</h2>
-            <p>Log in to get 10 FREE Potato Coins and start playing!</p>
-            <div class="login-buttons">
-                <button class="login-btn google" onclick="login('google')">
-                    <span>🔍</span>
-                    Continue with Google
-                </button>
-                <button class="login-btn facebook" onclick="login('facebook')">
-                    <span>📘</span>
-                    Continue with Facebook
-                </button>
-                <button class="login-btn linkedin" onclick="login('linkedin')">
-                    <span>💼</span>
-                    Continue with LinkedIn
-                </button>
-                <button class="login-btn guest" onclick="login('guest')">
-                    <span>👤</span>
-                    Continue as Guest (0 PC)
-                </button>
+        <!-- Wallet Section (shown when not logged in) -->
+        <div class="wallet-section logged-out">
+            <h2>🥔 Your Potato Coin Wallet</h2>
+
+            <div class="wallet-balance">
+                <div class="label">Balance</div>
+                <div class="amount">0</div>
+                <div class="label">Potato Coins</div>
+            </div>
+
+            <div class="wallet-address-container">
+                <h4>Your Wallet Address</h4>
+                <div class="address-display">
+                    <div class="address-text" id="wallet-address">PC1A2b3C4d5E6f7G8h9I0jKlMnOpQrStUvWx</div>
+                    <button class="copy-btn" onclick="copyAddress()">Copy</button>
+                </div>
+            </div>
+
+            <a href="#" class="exchange-link" onclick="openExchange(); return false;">
+                💱 Exchange USD/USDC → Potato Coins
+            </a>
+
+            <div class="privacy-note">
+                <p><span class="icon">🔒</span> <strong>Stay totally anonymous.</strong> Transfer crypto to your wallet address to play without any personal information.</p>
+            </div>
+
+            <div class="divider">
+                <span>OR</span>
+            </div>
+
+            <div class="login-prompt">
+                <h3>Play for FREE with Social Login</h3>
+                <p>Get 10 Potato Coins instantly + daily rewards</p>
+                <div class="login-buttons">
+                    <button class="login-btn google" onclick="login('google')">
+                        <span>🔍</span>
+                        Continue with Google
+                    </button>
+                    <button class="login-btn facebook" onclick="login('facebook')">
+                        <span>📘</span>
+                        Continue with Facebook
+                    </button>
+                    <button class="login-btn linkedin" onclick="login('linkedin')">
+                        <span>💼</span>
+                        Continue with LinkedIn
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -457,6 +615,22 @@
         let userBalance = 0;
         let dailyRewardClaimed = false;
 
+        function copyAddress() {
+            const address = document.getElementById('wallet-address').textContent;
+            navigator.clipboard.writeText(address).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        function openExchange() {
+            alert('Exchange modal would open here.\n\nSupported conversions:\n- USD → Potato Coins\n- USDC → Potato Coins\n- ETH → Potato Coins\n\nRate: 1 PC = $0.10 USD');
+        }
+
         function login(provider) {
             console.log(`Logging in with ${provider}...`);
 
@@ -465,13 +639,8 @@
             document.body.classList.add('authenticated');
 
             // Set initial balance based on login type
-            if (provider === 'guest') {
-                userBalance = 0;
-                document.getElementById('username').textContent = 'Guest Player';
-            } else {
-                userBalance = 10; // First time login bonus
-                document.getElementById('username').textContent = `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`;
-            }
+            userBalance = 10; // First time login bonus
+            document.getElementById('username').textContent = `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`;
 
             updateBalance();
 
