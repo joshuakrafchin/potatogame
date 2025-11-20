@@ -558,6 +558,7 @@
         };
 
         let farmTimer = null;
+        let potatoTimers = null;
 
         function updateFarmTimer() {
             if (!gameState.farmNextProduction) {
@@ -582,25 +583,97 @@
         function produceFarmPotato() {
             const emptySlot = gameState.slots.find(s => !s.potato && !s.frozen);
             if (!emptySlot) {
-                alert('🌾 Your farm produced a potato, but you have no empty slots! Buy more slots or toss a potato.');
+                // No alert, just skip
                 return;
             }
 
             // Produce a random potato type
             const potatoTypes = [
-                { name: 'Golden Potato', value: 3, heat: 0 },
-                { name: 'Home Fry Potato', value: 8, heat: 0 },
-                { name: 'BTC Potato', value: 5, heat: 0 },
-                { name: 'Basic Potato', value: 2, heat: 0 }
+                { name: 'Golden Potato', value: 3, heat: 0, burnTime: 20000 },
+                { name: 'Home Fry Potato', value: 8, heat: 0, burnTime: 20000 },
+                { name: 'BTC Potato', value: 5, heat: 0, burnTime: 20000 },
+                { name: 'Basic Potato', value: 2, heat: 0, burnTime: 20000 }
             ];
 
             const randomPotato = potatoTypes[Math.floor(Math.random() * potatoTypes.length)];
             emptySlot.potato = {
                 ...randomPotato,
-                timeLeft: '20s'
+                burnAt: Date.now() + randomPotato.burnTime
             };
 
             updateUI();
+        }
+
+        function updatePotatoTimers() {
+            let needsUpdate = false;
+
+            gameState.slots.forEach((slot, index) => {
+                if (slot.potato && slot.potato.burnAt) {
+                    const now = Date.now();
+                    const remaining = Math.max(0, slot.potato.burnAt - now);
+                    const seconds = Math.ceil(remaining / 1000);
+
+                    if (remaining <= 0) {
+                        // Potato burned!
+                        slot.potato = null;
+                        slot.frozen = true;
+                        slot.frozenTime = '1m';
+                        slot.frozenUntil = Date.now() + 60000; // 1 minute frozen
+                        needsUpdate = true;
+                    }
+                }
+
+                // Update frozen timers
+                if (slot.frozen && slot.frozenUntil) {
+                    const now = Date.now();
+                    const remaining = Math.max(0, slot.frozenUntil - now);
+                    const seconds = Math.ceil(remaining / 1000);
+                    slot.frozenTime = seconds > 0 ? seconds + 's' : '0s';
+
+                    if (remaining <= 0) {
+                        slot.frozen = false;
+                        slot.frozenTime = null;
+                        slot.frozenUntil = null;
+                        needsUpdate = true;
+                    }
+                }
+            });
+
+            if (needsUpdate) {
+                updateUI();
+            } else {
+                // Just update the display without full re-render
+                updatePotatoTimerDisplay();
+            }
+        }
+
+        function updatePotatoTimerDisplay() {
+            gameState.slots.forEach((slot, index) => {
+                if (slot.potato && slot.potato.burnAt) {
+                    const now = Date.now();
+                    const remaining = Math.max(0, slot.potato.burnAt - now);
+                    const seconds = Math.ceil(remaining / 1000);
+                    const timerEl = document.getElementById(`potato-timer-${index}`);
+                    if (timerEl) {
+                        timerEl.textContent = `Burns in ${seconds}s`;
+                    }
+                }
+
+                if (slot.frozen && slot.frozenUntil) {
+                    const now = Date.now();
+                    const remaining = Math.max(0, slot.frozenUntil - now);
+                    const seconds = Math.ceil(remaining / 1000);
+                    const frozenEl = document.getElementById(`frozen-timer-${index}`);
+                    if (frozenEl) {
+                        frozenEl.textContent = `Frozen: ${seconds}s`;
+                    }
+                }
+            });
+        }
+
+        function startPotatoTimers() {
+            if (potatoTimers) clearInterval(potatoTimers);
+            potatoTimers = setInterval(updatePotatoTimers, 100);
         }
 
         function startFarmTimer() {
@@ -634,11 +707,17 @@
                     slotDiv.className = 'slot frozen';
                     slotDiv.innerHTML = `
                         <div>❄️</div>
-                        <div class="frozen-timer">Frozen: ${slot.frozenTime}</div>
+                        <div class="frozen-timer" id="frozen-timer-${index}">Frozen: ${slot.frozenTime}</div>
                     `;
                 } else if (slot.potato) {
                     slotDiv.className = 'slot has-potato';
-                    const heatIcon = slot.potato.heat > 66 ? '🔥' : slot.potato.heat > 33 ? '🌡️' : '';
+
+                    const now = Date.now();
+                    const remaining = Math.max(0, slot.potato.burnAt - now);
+                    const seconds = Math.ceil(remaining / 1000);
+                    const totalTime = slot.potato.burnTime || 20000;
+                    const progress = (remaining / totalTime) * 100;
+                    const heatIcon = progress < 33 ? '🔥' : progress < 66 ? '🌡️' : '';
 
                     const tossButtons = gameState.otherPlayers.map(player =>
                         `<button class="toss-btn" onclick="tossPotato(${index}, '${player}')">→ ${player}</button>`
@@ -647,7 +726,7 @@
                     slotDiv.innerHTML = `
                         ${heatIcon ? `<div class="heat-indicator">${heatIcon}</div>` : ''}
                         <div class="potato-name">${slot.potato.name}</div>
-                        <div class="potato-timer">Burns in ${slot.potato.timeLeft}</div>
+                        <div class="potato-timer" id="potato-timer-${index}">Burns in ${seconds}s</div>
                         <div class="potato-value">${slot.potato.value} PC</div>
                         <div class="toss-buttons">
                             ${tossButtons}
@@ -667,30 +746,33 @@
                 if (!farmTimer) {
                     startFarmTimer();
                 }
+                if (!potatoTimers) {
+                    startPotatoTimers();
+                }
             } else {
                 document.body.classList.remove('has-slots');
                 if (farmTimer) {
                     clearInterval(farmTimer);
                     farmTimer = null;
                 }
+                if (potatoTimers) {
+                    clearInterval(potatoTimers);
+                    potatoTimers = null;
+                }
             }
         }
 
         function buySlot() {
             if (gameState.balance < 5) {
-                alert('Not enough Potato Coins! You need 5 PC to buy a slot.\n\nBuy coins or get free coins to continue.');
                 return;
             }
 
             gameState.balance -= 5;
             gameState.slots.push({ locked: false, potato: null, frozen: false });
             updateUI();
-            alert('Slot purchased! You now have ' + gameState.slots.length + ' slot(s).');
         }
 
         function socialLogin() {
-            alert('Social Login Modal\n\nChoose your provider:\n- Google\n- Facebook\n- LinkedIn\n\nGet FREE slot + 10 Potato Coins!');
-
             // Simulate social login
             gameState.balance = 10;
             gameState.hasFreSlot = true;
@@ -709,13 +791,11 @@
             const price = prices[type];
 
             if (gameState.balance < price) {
-                alert(`Not enough Potato Coins! You need ${price} PC.`);
                 return;
             }
 
             const emptySlot = gameState.slots.find(s => !s.potato && !s.frozen);
             if (!emptySlot) {
-                alert('No empty slots available! Buy a new slot or wait for a potato to burn.');
                 return;
             }
 
@@ -724,30 +804,27 @@
                 name: type.charAt(0).toUpperCase() + type.slice(1) + ' Potato',
                 value: price,
                 heat: 0,
-                timeLeft: '20s'
+                burnTime: 20000,
+                burnAt: Date.now() + 20000
             };
 
             updateUI();
-            alert(`${emptySlot.potato.name} purchased!`);
         }
 
         function buyCoins() {
-            alert('Buy Coins Modal\n\nPricing:\n- 100 PC = $10\n- 500 PC = $45\n- 1000 PC = $80\n\nAccepting:\n- Credit/Debit Cards\n- PayPal\n- Crypto (ETH, USDC)');
+            // Modal would open here
         }
 
         function getFreeCoins() {
-            alert('Get Free Coins\n\nOptions:\n1. Daily Login Bonus (10 PC/day)\n2. Invite Friends (20 PC per friend)\n3. Social Login (10 PC first time)\n4. Watch Ads (5 PC per ad)\n5. Transfer from your crypto wallet');
+            // Modal would open here
         }
 
         function tossPotato(slotIndex, toPlayer) {
             const slot = gameState.slots[slotIndex];
             if (!slot || !slot.potato) return;
 
-            const potatoName = slot.potato.name;
             slot.potato = null;
             updateUI();
-
-            alert(`🥔 Tossed ${potatoName} to ${toPlayer}!`);
         }
 
         // Initialize
