@@ -602,7 +602,7 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script>
         // Mock game state
         let gameState = {
@@ -645,13 +645,18 @@
 
             // Generate QR code
             qrContainer.innerHTML = '';
-            QRCode.toCanvas(mockUrl, { width: 200 }, function (error, canvas) {
-                if (error) {
-                    qrContainer.innerHTML = '<div style="padding: 40px; background: white;">QR Code Error</div>';
-                } else {
-                    qrContainer.appendChild(canvas);
-                }
-            });
+            try {
+                new QRCode(qrContainer, {
+                    text: mockUrl,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } catch (error) {
+                qrContainer.innerHTML = '<div style="padding: 40px; background: white; color: #666;">QR Code Loading...</div>';
+            }
 
             // Mock verification flow
             statusEl.textContent = 'Waiting for scan...';
