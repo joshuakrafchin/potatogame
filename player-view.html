@@ -217,6 +217,7 @@
         .slot.has-potato {
             background: linear-gradient(135deg, #ffd700, #ffed4e);
             border: 2px solid #f39c12;
+            padding: 12px;
         }
 
         .slot.frozen {
@@ -275,6 +276,32 @@
         .unlock-text {
             font-size: 13px;
             color: #666;
+        }
+
+        .toss-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .toss-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+            min-width: 45%;
+        }
+
+        .toss-btn:hover {
+            background: #5568d3;
+            transform: scale(1.05);
         }
 
         /* Store Section */
@@ -526,7 +553,8 @@
             slots: [],
             hasFreSlot: false,
             farmNextProduction: null,
-            farmInterval: 30000 // 30 seconds
+            farmInterval: 30000, // 30 seconds
+            otherPlayers: ['Alice', 'Bob', 'Charlie'] // Mock other players
         };
 
         let farmTimer = null;
@@ -547,8 +575,32 @@
             if (remaining <= 0) {
                 // Farm produced a potato!
                 gameState.farmNextProduction = Date.now() + gameState.farmInterval;
-                alert('🌾 Your farm produced a potato!');
+                produceFarmPotato();
             }
+        }
+
+        function produceFarmPotato() {
+            const emptySlot = gameState.slots.find(s => !s.potato && !s.frozen);
+            if (!emptySlot) {
+                alert('🌾 Your farm produced a potato, but you have no empty slots! Buy more slots or toss a potato.');
+                return;
+            }
+
+            // Produce a random potato type
+            const potatoTypes = [
+                { name: 'Golden Potato', value: 3, heat: 0 },
+                { name: 'Home Fry Potato', value: 8, heat: 0 },
+                { name: 'BTC Potato', value: 5, heat: 0 },
+                { name: 'Basic Potato', value: 2, heat: 0 }
+            ];
+
+            const randomPotato = potatoTypes[Math.floor(Math.random() * potatoTypes.length)];
+            emptySlot.potato = {
+                ...randomPotato,
+                timeLeft: '20s'
+            };
+
+            updateUI();
         }
 
         function startFarmTimer() {
@@ -587,11 +639,19 @@
                 } else if (slot.potato) {
                     slotDiv.className = 'slot has-potato';
                     const heatIcon = slot.potato.heat > 66 ? '🔥' : slot.potato.heat > 33 ? '🌡️' : '';
+
+                    const tossButtons = gameState.otherPlayers.map(player =>
+                        `<button class="toss-btn" onclick="tossPotato(${index}, '${player}')">→ ${player}</button>`
+                    ).join('');
+
                     slotDiv.innerHTML = `
                         ${heatIcon ? `<div class="heat-indicator">${heatIcon}</div>` : ''}
                         <div class="potato-name">${slot.potato.name}</div>
                         <div class="potato-timer">Burns in ${slot.potato.timeLeft}</div>
                         <div class="potato-value">${slot.potato.value} PC</div>
+                        <div class="toss-buttons">
+                            ${tossButtons}
+                        </div>
                     `;
                 } else {
                     slotDiv.className = 'slot';
@@ -677,6 +737,17 @@
 
         function getFreeCoins() {
             alert('Get Free Coins\n\nOptions:\n1. Daily Login Bonus (10 PC/day)\n2. Invite Friends (20 PC per friend)\n3. Social Login (10 PC first time)\n4. Watch Ads (5 PC per ad)\n5. Transfer from your crypto wallet');
+        }
+
+        function tossPotato(slotIndex, toPlayer) {
+            const slot = gameState.slots[slotIndex];
+            if (!slot || !slot.potato) return;
+
+            const potatoName = slot.potato.name;
+            slot.potato = null;
+            updateUI();
+
+            alert(`🥔 Tossed ${potatoName} to ${toPlayer}!`);
         }
 
         // Initialize
