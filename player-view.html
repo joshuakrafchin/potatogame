@@ -458,6 +458,24 @@
             font-size: 14px;
             color: #667eea;
             font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .simulate-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .simulate-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
         }
 
         .privacy-badge {
@@ -522,11 +540,16 @@
             <div class="zkpassport-section" id="zkpassport-section" style="display: none;">
                 <div class="privacy-badge">🔒 Privacy-Preserving Verification</div>
                 <h4>Scan with ZKPassport App</h4>
-                <p>Verify your identity without revealing personal data</p>
+                <p>1. Open zkPassport app on your phone<br>
+                2. Scan this QR code<br>
+                3. Verify your passport/ID in the app</p>
                 <div class="qr-container" id="qr-container">
                     <!-- QR code will be generated here -->
                 </div>
                 <div class="zkpassport-status" id="zkpassport-status">Waiting for scan...</div>
+                <button class="simulate-btn" id="simulate-btn" onclick="simulateVerification()">
+                    🧪 Simulate Verification (Demo Only)
+                </button>
             </div>
 
             <p style="margin-top: 20px; font-size: 14px;">
@@ -658,26 +681,44 @@
                 qrContainer.innerHTML = '<div style="padding: 40px; background: white; color: #666;">QR Code Loading...</div>';
             }
 
-            // Mock verification flow
+            // In production, the SDK would listen for events:
+            // query.onRequestReceived(() => { statusEl.textContent = 'QR Code scanned!'; });
+            // query.onGeneratingProof(() => { statusEl.textContent = 'Generating proof...'; });
+            // query.onProofGenerated(() => { statusEl.textContent = 'Proof generated! Verifying...'; });
+            // query.onResult((result) => { completeZKPassportVerification(result); });
+
             statusEl.textContent = 'Waiting for scan...';
+        }
 
-            // Simulate user scanning and verifying
-            setTimeout(() => {
-                statusEl.textContent = 'QR Code scanned! Generating proof...';
-            }, 2000);
+        function simulateVerification() {
+            const statusEl = document.getElementById('zkpassport-status');
+            const simulateBtn = document.getElementById('simulate-btn');
+
+            // Disable button during simulation
+            simulateBtn.disabled = true;
+            simulateBtn.style.opacity = '0.5';
+            simulateBtn.style.cursor = 'not-allowed';
+
+            // Simulate the verification steps
+            statusEl.textContent = 'QR Code scanned!';
 
             setTimeout(() => {
-                statusEl.textContent = 'Proof generated! Verifying...';
-            }, 4000);
+                statusEl.textContent = 'Generating zero-knowledge proof...';
+            }, 1000);
+
+            setTimeout(() => {
+                statusEl.textContent = 'Proof generated! Verifying on server...';
+            }, 2500);
 
             setTimeout(() => {
                 statusEl.textContent = '✓ Verification complete!';
                 completeZKPassportVerification();
-            }, 6000);
+            }, 4000);
         }
 
         function completeZKPassportVerification() {
             // In production, this would be called after server-side verification
+            // with the actual verified data and unique identifier
             gameState.balance = 10;
             gameState.hasFreSlot = true;
             gameState.slots.push({ locked: false, potato: null, frozen: false });
