@@ -426,6 +426,51 @@
             color: white;
         }
 
+        .zkpassport-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px solid #667eea;
+        }
+
+        .zkpassport-section h4 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .zkpassport-section p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
+        .zkpassport-status {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .privacy-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
         .cta-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -469,10 +514,21 @@
                 <button class="cta-btn primary" onclick="buySlot()">
                     Buy Your First Slot (5 PC)
                 </button>
-                <button class="cta-btn secondary" onclick="socialLogin()">
-                    Social Login = FREE Slot + 10 PC
+                <button class="cta-btn secondary" onclick="startZKPassportVerification()">
+                    Verify Identity = FREE Slot + 10 PC
                 </button>
             </div>
+
+            <div class="zkpassport-section" id="zkpassport-section" style="display: none;">
+                <div class="privacy-badge">🔒 Privacy-Preserving Verification</div>
+                <h4>Scan with ZKPassport App</h4>
+                <p>Verify your identity without revealing personal data</p>
+                <div class="qr-container" id="qr-container">
+                    <!-- QR code will be generated here -->
+                </div>
+                <div class="zkpassport-status" id="zkpassport-status">Waiting for scan...</div>
+            </div>
+
             <p style="margin-top: 20px; font-size: 14px;">
                 💡 Need Potato Coins? Transfer crypto to your wallet or use the exchange above.
             </p>
@@ -546,6 +602,7 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         // Mock game state
         let gameState = {
@@ -554,11 +611,78 @@
             hasFreSlot: false,
             farmNextProduction: null,
             farmInterval: 30000, // 30 seconds
-            otherPlayers: ['Alice', 'Bob', 'Charlie'] // Mock other players
+            otherPlayers: ['Alice', 'Bob', 'Charlie'], // Mock other players
+            zkPassportVerification: null
         };
 
         let farmTimer = null;
         let potatoTimers = null;
+
+        // ZKPassport Integration
+        // Note: This is a mock implementation for UI demonstration
+        // In production, you would use: import { ZKPassport } from "@zkpassport/sdk"
+
+        async function startZKPassportVerification() {
+            const zkSection = document.getElementById('zkpassport-section');
+            const statusEl = document.getElementById('zkpassport-status');
+            const qrContainer = document.getElementById('qr-container');
+
+            zkSection.style.display = 'block';
+
+            // Mock ZKPassport initialization
+            // In production:
+            // const zkPassport = new ZKPassport();
+            // const query = await zkPassport.request({
+            //   name: "Hot Potato Game",
+            //   logo: "https://joshuakrafchin.github.io/potatogame/logo.png",
+            //   purpose: "Account verification for free game access"
+            // });
+            // const { url, requestId } = query.gte("age", 18).done();
+
+            // Generate mock QR code URL for demonstration
+            const mockRequestId = 'mock-' + Date.now();
+            const mockUrl = `zkpassport://verify?app=hotpotato&request=${mockRequestId}`;
+
+            // Generate QR code
+            qrContainer.innerHTML = '';
+            QRCode.toCanvas(mockUrl, { width: 200 }, function (error, canvas) {
+                if (error) {
+                    qrContainer.innerHTML = '<div style="padding: 40px; background: white;">QR Code Error</div>';
+                } else {
+                    qrContainer.appendChild(canvas);
+                }
+            });
+
+            // Mock verification flow
+            statusEl.textContent = 'Waiting for scan...';
+
+            // Simulate user scanning and verifying
+            setTimeout(() => {
+                statusEl.textContent = 'QR Code scanned! Generating proof...';
+            }, 2000);
+
+            setTimeout(() => {
+                statusEl.textContent = 'Proof generated! Verifying...';
+            }, 4000);
+
+            setTimeout(() => {
+                statusEl.textContent = '✓ Verification complete!';
+                completeZKPassportVerification();
+            }, 6000);
+        }
+
+        function completeZKPassportVerification() {
+            // In production, this would be called after server-side verification
+            gameState.balance = 10;
+            gameState.hasFreSlot = true;
+            gameState.slots.push({ locked: false, potato: null, frozen: false });
+            gameState.zkPassportVerification = {
+                verified: true,
+                uniqueIdentifier: 'zk-' + Date.now(),
+                timestamp: Date.now()
+            };
+            updateUI();
+        }
 
         function updateFarmTimer() {
             if (!gameState.farmNextProduction) {
@@ -772,13 +896,6 @@
             updateUI();
         }
 
-        function socialLogin() {
-            // Simulate social login
-            gameState.balance = 10;
-            gameState.hasFreSlot = true;
-            gameState.slots.push({ locked: false, potato: null, frozen: false });
-            updateUI();
-        }
 
         function buyPotato(type) {
             const prices = {
