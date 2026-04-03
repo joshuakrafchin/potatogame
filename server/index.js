@@ -45,6 +45,28 @@ io.on('connection', (socket) => {
   socket.on('register', ({ playerName }) => {
     const player = gameManager.registerPlayer(socket.id, playerName);
     socket.emit('registered', { player: gameManager.getPlayerPublic(player) });
+    // Broadcast updated player list to everyone
+    broadcastPlayerList();
+  });
+
+  // Request a test potato (for demo/testing)
+  socket.on('request_test_potato', () => {
+    const player = gameManager.getPlayer(socket.id);
+    if (!player) return;
+    if (player.potato) { socket.emit('error', { message: 'You already have a potato!' }); return; }
+    const { createPotato } = require('./game');
+    const potato = createPotato('GOLDEN');
+    potato.holderId = socket.id;
+    player.potato = potato;
+    player.stats.totalReceived++;
+    const badges = gameManager._checkBadges(player);
+    socket.emit('potato_received', {
+      player: gameManager.getPlayerPublic(player),
+      potato,
+      fromPlayer: 'The Farm',
+      badges
+    });
+    broadcastPlayerList();
   });
 
   // Toss to online player
@@ -66,6 +88,7 @@ io.on('connection', (socket) => {
       fromPlayer: result.tosser.name,
       badges: result.receiverBadges
     });
+    broadcastPlayerList();
   });
 
   // Create external toss (share link)
@@ -118,8 +141,17 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);
     gameManager.removePlayer(socket.id);
+    broadcastPlayerList();
   });
 });
+
+function broadcastPlayerList() {
+  const players = [];
+  gameManager.players.forEach((p) => {
+    players.push(gameManager.getPlayerPublic(p));
+  });
+  io.emit('player_list', { players });
+}
 
 // Game tick — burn timers
 setInterval(() => {
