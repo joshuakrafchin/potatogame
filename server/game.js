@@ -213,13 +213,30 @@ class GameManager {
     };
   }
 
-  // --- Toss (in-app, between connected players) ---
+  // --- Toss (to any player — online or offline) ---
   tossPotato(fromId, toId) {
     const tosser = this.players.get(fromId);
-    const receiver = this.players.get(toId);
     if (!tosser) return { error: 'You are not connected' };
-    if (!receiver) return { error: 'That player is offline' };
     if (!tosser.potato) return { error: 'You have no potato to toss!' };
+
+    // Receiver can be online or offline
+    let receiver = this.players.get(toId);
+    let receiverOffline = false;
+    if (!receiver) {
+      // Load from DB if offline
+      if (this.db) {
+        const dbPlayer = this.db.getPlayerById(toId);
+        if (dbPlayer) {
+          receiver = createPlayer(toId, dbPlayer.name);
+          receiver.coins = dbPlayer.coins;
+          receiver.badges = dbPlayer.badges;
+          receiver.stats = dbPlayer.stats;
+          receiver.dbId = dbPlayer.id;
+          receiverOffline = true;
+        }
+      }
+    }
+    if (!receiver) return { error: 'Player not found' };
     if (receiver.potato) return { error: 'They already have a potato!' };
 
     const potato = tosser.potato;
@@ -279,6 +296,13 @@ class GameManager {
     this.persistPlayer(tosser);
     this.persistPlayer(receiver);
 
+    // If receiver is offline, store pending potato for when they reconnect
+    if (receiverOffline) {
+      if (this.db) {
+        this.db.savePendingPotato(toId, potato);
+      }
+    }
+
     return {
       tosser: this.getPlayerPublic(tosser),
       receiver: this.getPlayerPublic(receiver),
@@ -286,7 +310,8 @@ class GameManager {
       coinsEarned,
       tossType,
       tosserBadges,
-      receiverBadges
+      receiverBadges,
+      receiverOffline
     };
   }
 

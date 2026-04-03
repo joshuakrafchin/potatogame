@@ -467,8 +467,11 @@
 
       socket.on('player_list', ({ players }) => {
         state.onlinePlayers = players.filter(p => p.id !== state.myId);
-        document.getElementById('playerCount').textContent = players.length + ' player' + (players.length !== 1 ? 's' : '') + ' online';
+        const onlineCount = players.filter(p => p.online).length;
+        document.getElementById('playerCount').textContent = players.length + ' player' + (players.length !== 1 ? 's' : '') + ' (' + onlineCount + ' online)';
         if (state.hasPotato) renderTargets();
+        // Also update lobby targets
+        renderTargets();
       });
 
       // Someone tossed YOU a potato
@@ -740,7 +743,7 @@
       const scroll = document.getElementById('targetScroll');
       const players = state.onlinePlayers;
       if (players.length === 0) {
-        scroll.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,0.6);padding:10px;text-align:center;">No other players online yet.<br>Share the link to invite friends!</div>';
+        scroll.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,0.6);padding:10px;text-align:center;">No other players yet.<br>Share the link to invite friends!</div>';
         return;
       }
       // Auto-select first player if none selected
@@ -750,7 +753,7 @@
       scroll.innerHTML = players.map(c =>
         '<div class="target-card' + (state.selectedTarget && state.selectedTarget.id === c.id ? ' selected' : '') + '" onclick="selectTarget(\'' + c.id + '\')">' +
         '<div class="target-name">' + c.name + '</div>' +
-        '<div class="target-stat">' + (c.hasPotato ? '&#129364; holding potato' : '&#9996;&#65039; free hands') + '</div></div>'
+        '<div class="target-stat">' + (c.online ? '&#128994;' : '&#9898;') + ' ' + (c.hasPotato ? 'holding potato' : 'free hands') + '</div></div>'
       ).join('');
     }
 

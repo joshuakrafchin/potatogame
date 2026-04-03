@@ -14,6 +14,12 @@ db.pragma('journal_mode = WAL');
 
 // --- Schema ---
 db.exec(`
+  CREATE TABLE IF NOT EXISTS pending_potatoes (
+    player_id TEXT NOT NULL,
+    potato TEXT NOT NULL,
+    created_at INTEGER DEFAULT (unixepoch() * 1000)
+  );
+
   CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -121,6 +127,21 @@ module.exports = {
 
   getAllPlayers() {
     return stmts.allPlayers.all().map(rowToPlayer);
+  },
+
+  getPlayerById(id) {
+    const row = stmts.getById.get(id);
+    return row ? rowToPlayer(row) : null;
+  },
+
+  savePendingPotato(playerId, potato) {
+    db.prepare('INSERT INTO pending_potatoes (player_id, potato) VALUES (?, ?)').run(playerId, JSON.stringify(potato));
+  },
+
+  getPendingPotatoes(playerId) {
+    const rows = db.prepare('SELECT * FROM pending_potatoes WHERE player_id = ?').all(playerId);
+    db.prepare('DELETE FROM pending_potatoes WHERE player_id = ?').run(playerId);
+    return rows.map(r => JSON.parse(r.potato));
   },
 
   db,

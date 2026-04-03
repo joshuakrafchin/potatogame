@@ -45,7 +45,31 @@ io.on('connection', (socket) => {
   socket.on('register', ({ playerName }) => {
     const player = gameManager.registerPlayer(socket.id, playerName);
     socket.emit('registered', { player: gameManager.getPlayerPublic(player) });
-    // Broadcast updated player list to everyone
+    // Deliver any pending potatoes (tossed while offline)
+    if (gameManager.db) {
+      const pending = gameManager.db.getPendingPotatoes(player.dbId || player.id);
+      if (pending.length > 0) {
+        const potato = pending[0]; // deliver first one
+        potato.holderId = socket.id;
+        // Reset timers for fresh delivery
+        const { POTATO_TYPES } = require('./game');
+        const typeDef = POTATO_TYPES[potato.type];
+        const now = Date.now();
+        potato.hotTime = now + typeDef.hotSeconds * 1000 * potato.heatModifier;
+        potato.burnTime = now + typeDef.burnSeconds * 1000 * potato.heatModifier;
+        potato.isHot = false;
+        player.potato = potato;
+        player.stats.totalReceived++;
+        const badges = gameManager._checkBadges(player);
+        socket.emit('potato_received', {
+          player: gameManager.getPlayerPublic(player),
+          potato,
+          fromPlayer: 'a friend',
+          badges
+        });
+        gameManager.persistPlayer(player);
+      }
+    }
     broadcastPlayerList();
   });
 
@@ -69,7 +93,7 @@ io.on('connection', (socket) => {
     broadcastPlayerList();
   });
 
-  // Toss to online player
+  // Toss to any player (online or offline)
   socket.on('toss_potato', ({ targetPlayerId }) => {
     const result = gameManager.tossPotato(socket.id, targetPlayerId);
     if (result.error) {
@@ -82,12 +106,15 @@ io.on('connection', (socket) => {
       tossType: result.tossType,
       badges: result.tosserBadges
     });
-    io.to(targetPlayerId).emit('potato_received', {
-      player: result.receiver,
-      potato: result.potato,
-      fromPlayer: result.tosser.name,
-      badges: result.receiverBadges
-    });
+    // Only send to receiver if they're online
+    if (!result.receiverOffline) {
+      io.to(targetPlayerId).emit('potato_received', {
+        player: result.receiver,
+        potato: result.potato,
+        fromPlayer: result.tosser.name,
+        badges: result.receiverBadges
+      });
+    }
     broadcastPlayerList();
   });
 
@@ -146,10 +173,32 @@ io.on('connection', (socket) => {
 });
 
 function broadcastPlayerList() {
+  // Combine online players + all DB players
+  const onlineIds = new Set();
   const players = [];
   gameManager.players.forEach((p) => {
-    players.push(gameManager.getPlayerPublic(p));
+    const pub = gameManager.getPlayerPublic(p);
+    pub.online = true;
+    players.push(pub);
+    onlineIds.add(p.dbId || p.id);
   });
+  // Add offline players from DB
+  if (gameManager.db) {
+    const allDb = gameManager.db.getAllPlayers();
+    allDb.forEach((p) => {
+      if (!onlineIds.has(p.id)) {
+        players.push({
+          id: p.id,
+          name: p.name,
+          coins: p.coins,
+          hasPotato: false,
+          badges: p.badges,
+          stats: p.stats,
+          online: false
+        });
+      }
+    });
+  }
   io.emit('player_list', { players });
 }
 
