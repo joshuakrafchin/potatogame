@@ -274,7 +274,8 @@
     <canvas id="lobbyPotato" width="60" height="60" class="potato-canvas"></canvas>
     <div class="section-title" id="welcomeText">Welcome!</div>
     <div class="body-text">Yer farm is peaceful... for now.</div>
-    <a class="pixel-btn orange" onclick="receivePotato()" style="margin-top:30px;">&#129364; CATCH A POTATO</a>
+    <div class="body-text" id="playerCount" style="margin-top:8px;color:#ffd700;">Connecting...</div>
+    <a class="pixel-btn orange" onclick="receivePotato()" style="margin-top:20px;">&#129364; CATCH A POTATO</a>
     <div class="section-title" style="margin-top:36px;">Toss to a Friend</div>
     <div class="share-row">
       <div class="share-btn"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
@@ -333,13 +334,9 @@
     <div class="badge-grid" id="badgeGrid"></div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
     // --- GAME STATE ---
-    const CONNECTIONS = [
-      { id: 'p1', name: 'Sean', tossesFrom: 5, lastPlayed: '1h ago' },
-      { id: 'p2', name: 'Brigid', tossesFrom: 2, lastPlayed: '2h ago' },
-      { id: 'p3', name: 'Paddy', tossesFrom: 4, lastPlayed: '10m ago' },
-    ];
     const BADGE_DEFS = {
       FIRST_TOSS: { icon: '\u{1F954}\u2708\uFE0F', name: 'First Toss', desc: 'Tossed your first potato!', coins: 5 },
       FIRST_CATCH: { icon: '\u{1F932}', name: 'First Catch', desc: 'Caught your first potato!', coins: 5 },
@@ -349,9 +346,12 @@
       STREAK_10: { icon: '\u{1F31F}', name: 'Streak Master', desc: '10 toss streak', coins: 20 },
     };
 
+    let socket = null;
     const state = {
       name: '', coins: 10, badges: [], hasPotato: false,
-      heat: 0, selectedTarget: CONNECTIONS[2], heatInterval: null,
+      potato: null, heat: 0, selectedTarget: null, heatInterval: null,
+      onlinePlayers: [], // real players from server
+      myId: null,
     };
 
     // --- PIXEL ART ---
@@ -398,15 +398,134 @@
     // --- TITLE / START ---
     const nameInput = document.getElementById('nameInput');
     const startBtn = document.getElementById('startBtn');
+    // Restore saved name
+    const savedName = localStorage.getItem('potato_player_name');
+    if (savedName) {
+      nameInput.value = savedName;
+      state.name = savedName;
+      startBtn.classList.remove('disabled');
+    }
     nameInput.addEventListener('input', () => {
       state.name = nameInput.value.trim();
       startBtn.classList.toggle('disabled', !state.name);
     });
     function startGame() {
       if (!state.name) return;
+      localStorage.setItem('potato_player_name', state.name);
       document.getElementById('welcomeText').textContent = 'Welcome, ' + state.name + '!';
+      connectToServer();
       updateUI();
       showScreen('lobby');
+    }
+    // Auto-start if name was saved
+    if (savedName) {
+      setTimeout(() => startGame(), 200);
+    }
+
+    // --- SOCKET.IO CONNECTION ---
+    function connectToServer() {
+      socket = io();
+      socket.on('connect', () => {
+        console.log('Connected to server:', socket.id);
+        state.myId = socket.id;
+        socket.emit('register', { playerName: state.name });
+      });
+
+      socket.on('registered', ({ player }) => {
+        syncPlayerState(player);
+        document.getElementById('playerCount').textContent = '1 player online';
+      });
+
+      socket.on('player_list', ({ players }) => {
+        state.onlinePlayers = players.filter(p => p.id !== state.myId);
+        document.getElementById('playerCount').textContent = players.length + ' player' + (players.length !== 1 ? 's' : '') + ' online';
+        if (state.hasPotato) renderTargets();
+      });
+
+      // Someone tossed YOU a potato
+      socket.on('potato_received', ({ player, potato, fromPlayer, badges }) => {
+        syncPlayerState(player);
+        state.potato = potato;
+        state.hasPotato = true;
+        state.heat = 0;
+        showScreen('game');
+        renderGameState();
+        // Animate drop-in
+        const container = document.getElementById('potatoContainer');
+        container.classList.remove('potato-receiving');
+        void container.offsetWidth;
+        container.classList.add('potato-receiving');
+        setTimeout(() => container.classList.remove('potato-receiving'), 900);
+        startHeatFromServer(potato);
+        // Show who sent it
+        document.getElementById('heatLabel').innerHTML = '&#129364; From ' + fromPlayer + '!';
+        // Award badges from server
+        if (badges) badges.forEach(b => showBadgePopup(b));
+      });
+
+      // Your toss succeeded
+      socket.on('toss_success', ({ player, coinsEarned, tossType, badges }) => {
+        syncPlayerState(player);
+        // Show relief
+        let typeText = '';
+        if (tossType === 'danger') typeText = '&#128293; DANGER BONUS!';
+        else if (tossType === 'hot') typeText = '&#9832;&#65039; HOT BONUS!';
+        document.getElementById('reliefTarget').textContent = 'Potato tossed to ' + (state.selectedTarget ? state.selectedTarget.name : 'someone') + '!';
+        document.getElementById('reliefCoins').innerHTML = '<span class="coin-icon">P</span> +' + coinsEarned + ' ' + typeText;
+        updateUI();
+        showScreen('relief');
+        if (badges) badges.forEach(b => showBadgePopup(b));
+        setTimeout(() => { showScreen('game'); renderGameState(); }, 2500);
+      });
+
+      // Potato got hot (server timer)
+      socket.on('potato_hot', ({ potato, player }) => {
+        syncPlayerState(player);
+        state.potato = potato;
+      });
+
+      // Potato burned (server timer)
+      socket.on('potato_burned', ({ potato, player, coinsLost, badges }) => {
+        clearInterval(state.heatInterval);
+        syncPlayerState(player);
+        state.hasPotato = false;
+        state.potato = null;
+        state.heat = 0;
+        document.getElementById('edgeGlow').className = 'edge-glow';
+        document.body.style.background = '#87ceeb';
+        document.querySelectorAll('.sweat').forEach(s => s.classList.remove('visible'));
+        updateUI();
+        if (badges) badges.forEach(b => showBadgePopup(b));
+        alert('BURNED! The potato burned ye! -' + coinsLost + ' coins');
+        showScreen('game');
+        renderGameState();
+      });
+
+      socket.on('error', ({ message }) => {
+        alert(message);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        document.getElementById('playerCount').textContent = 'Disconnected...';
+      });
+    }
+
+    function syncPlayerState(player) {
+      state.coins = player.coins;
+      state.badges = player.badges || [];
+      state.hasPotato = player.hasPotato;
+      if (player.potato) state.potato = player.potato;
+      updateUI();
+    }
+
+    function showBadgePopup(badgeDef) {
+      const popup = document.getElementById('badgePopup');
+      document.getElementById('badgePopupIcon').textContent = badgeDef.icon || badgeDef.name;
+      document.getElementById('badgePopupName').textContent = badgeDef.name;
+      document.getElementById('badgePopupCoins').innerHTML = '<span class="coin-icon">P</span> +' + (badgeDef.coinBonus || badgeDef.coins || 0);
+      popup.classList.add('show');
+      setTimeout(() => popup.classList.remove('show'), 2500);
     }
 
     // --- UI UPDATES ---
@@ -415,22 +534,44 @@
       document.getElementById('badgeCount').textContent = state.badges.length;
     }
 
-    // --- RECEIVE POTATO ---
+    // --- RECEIVE POTATO (local demo fallback if no server) ---
     function receivePotato() {
+      if (socket && socket.connected) {
+        // In real multiplayer, you receive via someone tossing to you
+        // This button spawns a test potato via server
+        socket.emit('request_test_potato');
+        return;
+      }
+      // Offline fallback
       state.hasPotato = true;
       state.heat = 0;
       showScreen('game');
       renderGameState();
-      // Animate drop-in
       const container = document.getElementById('potatoContainer');
       container.classList.remove('potato-receiving');
       void container.offsetWidth;
       container.classList.add('potato-receiving');
       setTimeout(() => container.classList.remove('potato-receiving'), 900);
-      // Start heat
       startHeat();
-      // Badge
       awardBadge('FIRST_CATCH');
+    }
+
+    // Heat based on server potato timers
+    function startHeatFromServer(potato) {
+      clearInterval(state.heatInterval);
+      const totalTime = potato.burnTime - Date.now();
+      const hotTime = potato.hotTime - Date.now();
+      state.heatInterval = setInterval(() => {
+        const now = Date.now();
+        const elapsed = now - potato.createdAt;
+        const burnDuration = potato.burnTime - potato.createdAt;
+        state.heat = Math.min(elapsed / burnDuration, 1);
+        renderHeat();
+        if (state.heat >= 1) {
+          clearInterval(state.heatInterval);
+          // Server will handle the burn event
+        }
+      }, 200);
     }
 
     function startHeat() {
@@ -497,46 +638,46 @@
       if (!state.hasPotato || !state.selectedTarget) return;
       clearInterval(state.heatInterval);
 
-      // Toss animation
+      // Toss animation (plays immediately for responsiveness)
       const container = document.getElementById('potatoContainer');
       container.classList.add('potato-tossing');
 
+      // Tell server about the toss
+      if (socket && socket.connected) {
+        socket.emit('toss_potato', { targetPlayerId: state.selectedTarget.id });
+      }
+
       setTimeout(() => {
-        // Calculate reward
-        let earned = 2, type = '';
-        if (state.heat >= 0.85) { earned = 10; type = '&#128293; DANGER BONUS!'; }
-        else if (state.heat >= 0.5) { earned = 5; type = '&#9832;&#65039; HOT BONUS!'; }
-
-        state.coins += earned;
         state.hasPotato = false;
+        state.potato = null;
         state.heat = 0;
-
-        // Reset visuals
         container.classList.remove('potato-tossing');
         document.getElementById('edgeGlow').className = 'edge-glow';
         document.body.style.background = '#87ceeb';
         document.querySelectorAll('.sweat').forEach(s => s.classList.remove('visible'));
 
-        // Badge
-        awardBadge('FIRST_TOSS');
-
-        // Show relief
-        document.getElementById('reliefTarget').textContent = 'Potato tossed to ' + state.selectedTarget.name + '!';
-        document.getElementById('reliefCoins').innerHTML = '<span class="coin-icon">P</span> +' + earned + ' ' + type;
-        updateUI();
-        showScreen('relief');
-
-        setTimeout(() => {
-          showScreen('game');
-          renderGameState();
-        }, 2500);
+        // If not connected to server, do local fallback
+        if (!socket || !socket.connected) {
+          let earned = 2, type = '';
+          if (state.heat >= 0.85) { earned = 10; type = '&#128293; DANGER BONUS!'; }
+          else if (state.heat >= 0.5) { earned = 5; type = '&#9832;&#65039; HOT BONUS!'; }
+          state.coins += earned;
+          awardBadge('FIRST_TOSS');
+          document.getElementById('reliefTarget').textContent = 'Potato tossed to ' + state.selectedTarget.name + '!';
+          document.getElementById('reliefCoins').innerHTML = '<span class="coin-icon">P</span> +' + earned + ' ' + type;
+          updateUI();
+          showScreen('relief');
+          setTimeout(() => { showScreen('game'); renderGameState(); }, 2500);
+        }
+        // If connected, server sends toss_success which triggers relief
       }, 650);
     }
 
-    // --- BURN ---
+    // --- BURN (offline fallback only — server handles burn in multiplayer) ---
     function burnPotato() {
       state.coins = Math.max(0, state.coins - 3);
       state.hasPotato = false;
+      state.potato = null;
       state.heat = 0;
       document.getElementById('edgeGlow').className = 'edge-glow';
       document.body.style.background = '#87ceeb';
@@ -566,16 +707,24 @@
 
     function renderTargets() {
       const scroll = document.getElementById('targetScroll');
-      scroll.innerHTML = CONNECTIONS.map(c => 
-        '<div class="target-card' + (state.selectedTarget.id === c.id ? ' selected' : '') + '" onclick="selectTarget(\'' + c.id + '\')">' +
+      const players = state.onlinePlayers;
+      if (players.length === 0) {
+        scroll.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,0.6);padding:10px;text-align:center;">No other players online yet.<br>Share the link to invite friends!</div>';
+        return;
+      }
+      // Auto-select first player if none selected
+      if (!state.selectedTarget || !players.find(p => p.id === state.selectedTarget.id)) {
+        state.selectedTarget = players[0];
+      }
+      scroll.innerHTML = players.map(c =>
+        '<div class="target-card' + (state.selectedTarget && state.selectedTarget.id === c.id ? ' selected' : '') + '" onclick="selectTarget(\'' + c.id + '\')">' +
         '<div class="target-name">' + c.name + '</div>' +
-        '<div class="target-stat">Tossed you ' + c.tossesFrom + 'x</div>' +
-        '<div class="target-stat">' + c.lastPlayed + '</div></div>'
+        '<div class="target-stat">' + (c.hasPotato ? '&#129364; holding potato' : '&#9996;&#65039; free hands') + '</div></div>'
       ).join('');
     }
 
     function selectTarget(id) {
-      state.selectedTarget = CONNECTIONS.find(c => c.id === id);
+      state.selectedTarget = state.onlinePlayers.find(c => c.id === id);
       renderTargets();
     }
 

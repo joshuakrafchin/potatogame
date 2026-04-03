@@ -428,4 +428,4 @@ class GameManager {
   }
 }
 
-module.exports = { GameManager, POTATO_TYPES, BADGE_DEFS, ECONOMY };
+module.exports = { GameManager, POTATO_TYPES, BADGE_DEFS, ECONOMY, createPotato };
