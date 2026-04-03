@@ -143,21 +143,59 @@ function createPendingToss(fromPlayer, potatoType) {
 
 class GameManager {
   constructor() {
-    // Global player registry (no rooms)
-    this.players = new Map();       // socketId -> player
-    this.pendingTosses = new Map(); // tossId -> pendingToss
-    this.bumps = [];                // global bump buffer
+    // Online player registry (socketId -> player)
+    this.players = new Map();
+    this.pendingTosses = new Map();
+    this.bumps = [];
+    // Lazy-load DB (avoids crash if better-sqlite3 not installed yet)
+    this._db = null;
+  }
+
+  get db() {
+    if (!this._db) {
+      try { this._db = require('./db'); } catch (e) { console.warn('DB not available:', e.message); }
+    }
+    return this._db;
   }
 
   // --- Player Management ---
   registerPlayer(socketId, playerName) {
-    const player = createPlayer(socketId, playerName);
+    // Check DB for existing player with this name
+    let player;
+    if (this.db) {
+      const saved = this.db.findOrCreatePlayer(playerName);
+      if (saved) {
+        // Restore from DB
+        player = createPlayer(socketId, playerName);
+        player.coins = saved.coins;
+        player.badges = saved.badges;
+        player.stats = saved.stats;
+        player.dbId = saved.id;
+        // Update DB with new id mapping
+        this.db.updatePlayerId(saved.id, saved.id); // keep persistent id
+        player.dbId = saved.id;
+      }
+    }
+    if (!player) {
+      player = createPlayer(socketId, playerName);
+    }
     this.players.set(socketId, player);
     return player;
   }
 
   removePlayer(socketId) {
+    const player = this.players.get(socketId);
+    if (player && this.db) {
+      this.db.savePlayer(player);
+    }
     this.players.delete(socketId);
+  }
+
+  // Persist player to DB (call after state changes)
+  persistPlayer(player) {
+    if (this.db && player) {
+      this.db.savePlayer(player);
+    }
   }
 
   getPlayer(socketId) {
@@ -171,8 +209,7 @@ class GameManager {
       coins: player.coins,
       hasPotato: !!player.potato,
       badges: player.badges,
-      stats: player.stats,
-      connections: player.connections
+      stats: player.stats
     };
   }
 
@@ -237,6 +274,10 @@ class GameManager {
     // Check badges
     const tosserBadges = this._checkBadges(tosser);
     const receiverBadges = this._checkBadges(receiver);
+
+    // Persist both players to DB
+    this.persistPlayer(tosser);
+    this.persistPlayer(receiver);
 
     return {
       tosser: this.getPlayerPublic(tosser),
@@ -365,6 +406,7 @@ class GameManager {
           coinsLost: Math.abs(ECONOMY.BURN_PENALTY),
           badges
         });
+        this.persistPlayer(player);
       }
     });
 
