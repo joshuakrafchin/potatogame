@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Hot Potato",
+    "slug": "hot-potato",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#4a8c3f"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.potatogame.hotpotato",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Used to match nearby players for potato airdrop"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4a8c3f"
+      },
+      "package": "com.potatogame.hotpotato",
+      "permissions": ["ACCESS_FINE_LOCATION"]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-sensors",
+      "expo-haptics",
+      "expo-location"
+    ]
+  }
+}

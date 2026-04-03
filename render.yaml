@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: hot-potato-server
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
