@@ -157,14 +157,40 @@
     .badge-card-name { font-size: 11px; color: white; margin-top: 8px; }
     .badge-card-desc { font-size: 8px; color: #b5e8a3; margin-top: 6px; }
 
-    /* Toss animation */
+    /* Toss animation (triggered after swipe release) */
     .potato-tossing {
-      animation: tossUp 0.6s ease-in forwards;
+      animation: tossUp 0.5s cubic-bezier(0.2, 0, 0, 1) forwards;
     }
     @keyframes tossUp {
       0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(-120vh) scale(0.2) rotate(720deg); opacity: 0; }
+      40% { transform: translateY(-40vh) scale(0.8) rotate(360deg); opacity: 1; }
+      100% { transform: translateY(-130vh) scale(0.1) rotate(900deg); opacity: 0; }
     }
+
+    /* Trail particles */
+    .trail-container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 400; }
+    .trail-particle {
+      position: absolute; border-radius: 50%; pointer-events: none;
+      animation: trailFade 0.6s ease-out forwards;
+    }
+    @keyframes trailFade {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.2) translateY(20px); }
+    }
+
+    /* Swipe hint pulse */
+    .swipe-hint {
+      position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; color: rgba(255,255,255,0.6); letter-spacing: 1px;
+      animation: hintPulse 2s infinite;
+    }
+    @keyframes hintPulse {
+      0%, 100% { opacity: 0.4; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+    }
+
+    /* Dragging state */
+    .potato-dragging { transition: none !important; z-index: 500; }
 
     /* Receive animation */
     .potato-receiving {
@@ -217,6 +243,7 @@
   <div class="cloud cloud-1"></div>
   <div class="cloud cloud-2"></div>
   <div class="edge-glow" id="edgeGlow" style="position:fixed;top:0;left:0;right:0;bottom:0;"></div>
+  <div class="trail-container" id="trailContainer"></div>
 
   <!-- Header (hidden on title) -->
   <div class="header" id="header" style="display:none;">
@@ -263,7 +290,8 @@
     <div id="hasPotato" style="display:flex;flex-direction:column;align-items:center;">
       <div class="heat-bar-wrap"><div class="heat-bar-fill" id="heatFill"></div></div>
       <div class="heat-label" id="heatLabel">&#129364; Fresh potato</div>
-      <div class="potato-container" id="potatoContainer" style="margin:24px 0;">
+      <div class="potato-container" id="potatoContainer" style="margin:24px 0;position:relative;">
+        <div class="swipe-hint">&#11014;&#65039; swipe up</div>
         <div class="sweat sweat-1">&#128167;</div>
         <div class="sweat sweat-2">&#128167;</div>
         <div class="sweat sweat-3">&#128167;</div>
@@ -579,13 +607,101 @@
       }).join('');
     }
 
-    // --- SWIPE GESTURE ---
-    let touchStartY = 0;
-    document.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; });
-    document.addEventListener('touchend', e => {
-      const dy = touchStartY - e.changedTouches[0].clientY;
-      if (dy > 80 && state.hasPotato) tossPotato();
-    });
+    // --- SWIPE / DRAG GESTURE ---
+    let dragState = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, startTime: 0 };
+    const trailContainer = document.getElementById('trailContainer');
+    const SWIPE_THRESHOLD = 60; // pixels to trigger toss
+
+    function getPointerPos(e) {
+      if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+    function getPointerEndPos(e) {
+      if (e.changedTouches) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    function onDragStart(e) {
+      if (!state.hasPotato) return;
+      const pos = getPointerPos(e);
+      // Only start drag if touching near the potato
+      const container = document.getElementById('potatoContainer');
+      const rect = container.getBoundingClientRect();
+      const expanded = { top: rect.top - 40, bottom: rect.bottom + 80, left: rect.left - 40, right: rect.right + 40 };
+      if (pos.x < expanded.left || pos.x > expanded.right || pos.y < expanded.top || pos.y > expanded.bottom) return;
+
+      dragState = { active: true, startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y, startTime: Date.now() };
+      container.classList.add('potato-dragging');
+      e.preventDefault();
+    }
+
+    function onDragMove(e) {
+      if (!dragState.active) return;
+      const pos = getPointerPos(e);
+      dragState.currentX = pos.x;
+      dragState.currentY = pos.y;
+
+      const dx = pos.x - dragState.startX;
+      const dy = pos.y - dragState.startY;
+      const container = document.getElementById('potatoContainer');
+
+      // Move potato with finger
+      container.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) rotate(' + (dx * 0.3) + 'deg) scale(' + Math.max(0.8, 1 - Math.abs(dy) / 800) + ')';
+
+      // Spawn trail particles while dragging upward
+      if (dy < -20) {
+        spawnTrailParticle(pos.x, pos.y, state.heat);
+      }
+      e.preventDefault();
+    }
+
+    function onDragEnd(e) {
+      if (!dragState.active) return;
+      dragState.active = false;
+      const pos = getPointerEndPos(e);
+      const dy = dragState.startY - pos.y;
+      const dt = Date.now() - dragState.startTime;
+      const velocity = dy / Math.max(dt, 1) * 1000; // pixels per second
+
+      const container = document.getElementById('potatoContainer');
+      container.classList.remove('potato-dragging');
+      container.style.transform = '';
+
+      // Toss if swiped up enough (distance OR velocity)
+      if ((dy > SWIPE_THRESHOLD || velocity > 400) && state.hasPotato) {
+        // Burst of trail particles at release point
+        for (let i = 0; i < 8; i++) {
+          setTimeout(() => spawnTrailParticle(
+            pos.x + (Math.random() - 0.5) * 40,
+            pos.y + Math.random() * 30,
+            state.heat
+          ), i * 30);
+        }
+        tossPotato();
+      }
+    }
+
+    function spawnTrailParticle(x, y, heat) {
+      const p = document.createElement('div');
+      p.className = 'trail-particle';
+      const size = 6 + Math.random() * 10;
+      const colors = heat > 0.5
+        ? ['#ff4444', '#ff8c42', '#ffd700', '#ffaa00']
+        : ['#c9a84c', '#f5e6b8', '#ffd700', '#8b6914'];
+      p.style.cssText = 'left:' + (x - size/2) + 'px;top:' + (y - size/2) + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random() * colors.length)] + ';';
+      trailContainer.appendChild(p);
+      setTimeout(() => p.remove(), 600);
+    }
+
+    // Touch events
+    document.addEventListener('touchstart', onDragStart, { passive: false });
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+    document.addEventListener('touchend', onDragEnd);
+
+    // Mouse events (desktop fallback)
+    document.addEventListener('mousedown', onDragStart);
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
   </script>
 </body>
 </html>
