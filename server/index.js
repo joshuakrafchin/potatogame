@@ -1,0 +1,132 @@
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const { Server } = require('socket.io');
+const { GameManager } = require('./game');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
+
+const gameManager = new GameManager();
+
+// Serve static landing page
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// Catch potato landing page (viral entry point)
+app.get('/catch/:tossId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'catch.html'));
+});
+
+// API: Check pending toss status
+app.get('/api/toss/:tossId', (req, res) => {
+  const pending = gameManager.pendingTosses.get(req.params.tossId);
+  if (!pending) return res.json({ error: 'Not found or expired' });
+  if (pending.claimed) return res.json({ error: 'Already claimed' });
+  const now = Date.now();
+  if (now > pending.expiresAt) return res.json({ error: 'Burned! Too late.' });
+  res.json({
+    fromName: pending.fromPlayerName,
+    potatoType: pending.potatoType,
+    secondsLeft: Math.floor((pending.expiresAt - now) / 1000),
+    expiresAt: pending.expiresAt
+  });
+});
+
+// --- Socket.IO: Global game (no rooms) ---
+io.on('connection', (socket) => {
+  console.log(`Player connected: ${socket.id}`);
+
+  // Register player
+  socket.on('register', ({ playerName }) => {
+    const player = gameManager.registerPlayer(socket.id, playerName);
+    socket.emit('registered', { player: gameManager.getPlayerPublic(player) });
+  });
+
+  // Toss to online player
+  socket.on('toss_potato', ({ targetPlayerId }) => {
+    const result = gameManager.tossPotato(socket.id, targetPlayerId);
+    if (result.error) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    socket.emit('toss_success', {
+      player: result.tosser,
+      coinsEarned: result.coinsEarned,
+      tossType: result.tossType,
+      badges: result.tosserBadges
+    });
+    io.to(targetPlayerId).emit('potato_received', {
+      player: result.receiver,
+      potato: result.potato,
+      fromPlayer: result.tosser.name,
+      badges: result.receiverBadges
+    });
+  });
+
+  // Create external toss (share link)
+  socket.on('create_share_toss', ({ potatoType }) => {
+    const result = gameManager.createExternalToss(socket.id, potatoType);
+    if (result.error) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    socket.emit('share_toss_created', result);
+  });
+
+  // Claim external toss
+  socket.on('claim_toss', ({ tossId }) => {
+    const result = gameManager.claimExternalToss(tossId, socket.id);
+    if (result.error) {
+      socket.emit('error', { message: result.error });
+      return;
+    }
+    socket.emit('potato_received', {
+      player: result.receiver,
+      potato: result.potato,
+      fromPlayer: result.fromName,
+      badges: result.badges
+    });
+    // Notify tosser if online
+    const tosser = gameManager.getPlayer(result.potato.holderId);
+    if (tosser) {
+      io.to(result.receiver.id).emit('toss_claimed', {
+        claimedBy: result.receiver.name
+      });
+    }
+  });
+
+  // Bump detection
+  socket.on('bump_detected', ({ timestamp, latitude, longitude }) => {
+    const match = gameManager.registerBump(socket.id, timestamp, latitude, longitude);
+    if (match) {
+      const p1 = gameManager.getPlayer(match.player1);
+      const p2 = gameManager.getPlayer(match.player2);
+      io.to(match.player1).emit('bump_matched', {
+        partner: p2 ? gameManager.getPlayerPublic(p2) : null
+      });
+      io.to(match.player2).emit('bump_matched', {
+        partner: p1 ? gameManager.getPlayerPublic(p1) : null
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Player disconnected: ${socket.id}`);
+    gameManager.removePlayer(socket.id);
+  });
+});
+
+// Game tick — burn timers
+setInterval(() => {
+  gameManager.tick(io);
+}, 1000);
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`🥔 Hot Potato Server running on port ${PORT}`);
+});
