@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>HOT POTATO - Irish Farm Adventure</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Press Start 2P', monospace;
+      background: #87ceeb;
+      min-height: 100vh;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+
+    /* Hills */
+    .hills { position: fixed; bottom: 0; left: 0; right: 0; height: 40vh; z-index: 0; }
+    .hill { position: absolute; bottom: 0; width: 100%; border-radius: 50% 50% 0 0; }
+    .hill-1 { height: 35vh; background: #7bc96f; }
+    .hill-2 { height: 28vh; background: #4a8c3f; left: -10%; width: 60%; }
+    .hill-3 { height: 25vh; background: #4a8c3f; right: -10%; width: 60%; }
+    .hill-4 { height: 18vh; background: #2d5a1e; }
+
+    .shamrock { position: fixed; z-index: 1; font-size: 18px; }
+
+    /* Clouds */
+    .cloud { position: fixed; background: white; border-radius: 4px; z-index: 1; }
+    .cloud-1 { width: 60px; height: 30px; top: 12%; left: 10%; }
+    .cloud-2 { width: 45px; height: 22px; top: 8%; right: 8%; }
+
+    /* Screen overlay for heat */
+    .edge-glow {
+      position: fixed; z-index: 100; pointer-events: none;
+      transition: box-shadow 0.5s;
+    }
+    .edge-glow.active {
+      box-shadow: inset 0 0 80px rgba(255,68,68,0.6), inset 0 0 160px rgba(255,140,66,0.3);
+    }
+    .edge-glow.hot {
+      box-shadow: inset 0 0 40px rgba(255,140,66,0.3);
+    }
+
+    /* Screens */
+    .screen { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; flex-direction: column; align-items: center; }
+    .screen.active { display: flex; }
+
+    /* Header bar */
+    .header { position: fixed; top: 0; left: 0; right: 0; z-index: 200; display: flex; justify-content: space-between; padding: 16px 20px; }
+    .coin-display, .badge-display {
+      background: rgba(0,0,0,0.4); padding: 8px 14px; border: 2px solid #ffd700;
+      display: flex; align-items: center; gap: 8px; font-size: 14px; color: #ffd700;
+    }
+    .badge-display { border-color: #9b59b6; color: white; cursor: pointer; }
+
+    /* Title */
+    .title-text { font-size: 42px; color: white; text-shadow: 3px 3px 0 #5c3d2e; letter-spacing: 4px; }
+    .subtitle { font-size: 11px; color: #b5e8a3; margin-top: 12px; letter-spacing: 2px; }
+
+    /* Pixel button */
+    .pixel-btn {
+      font-family: 'Press Start 2P', monospace; font-size: 14px; color: white;
+      background: #4a8c3f; border: 3px solid #2d5a1e; border-bottom-width: 5px;
+      padding: 14px 30px; cursor: pointer; letter-spacing: 2px; text-decoration: none;
+      display: inline-block; text-align: center; min-width: 200px;
+    }
+    .pixel-btn:hover { background: #5a9c4f; }
+    .pixel-btn:active { border-bottom-width: 3px; margin-top: 2px; }
+    .pixel-btn.orange { background: #ff8c42; border-color: #cc6600; }
+    .pixel-btn.red { background: #ff4444; border-color: #cc0000; }
+    .pixel-btn.disabled { opacity: 0.5; pointer-events: none; }
+
+    /* Input */
+    .name-input {
+      font-family: 'Press Start 2P', monospace; font-size: 16px;
+      background: white; border: 3px solid #5c3d2e; padding: 14px 20px;
+      width: 80%; max-width: 320px; text-align: center; outline: none;
+    }
+
+    /* Pixel potato canvas */
+    .potato-container { position: relative; transition: transform 0.1s; }
+    .potato-canvas { image-rendering: pixelated; }
+
+    /* Sweat drops */
+    .sweat { position: absolute; font-size: 20px; opacity: 0; transition: opacity 0.5s; }
+    .sweat.visible { opacity: 1; animation: sweatDrip 1s infinite; }
+    .sweat-1 { top: -10px; left: -20px; }
+    .sweat-2 { top: 10px; right: -25px; animation-delay: 0.3s !important; }
+    .sweat-3 { bottom: -5px; left: -30px; animation-delay: 0.6s !important; }
+    @keyframes sweatDrip {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(8px); }
+    }
+
+    /* Heat bar */
+    .heat-bar-wrap { width: 70%; max-width: 300px; height: 18px; background: rgba(0,0,0,0.3); border: 2px solid #1a1a2e; overflow: hidden; }
+    .heat-bar-fill { height: 100%; width: 0%; transition: width 0.4s, background-color 0.4s; background: #ffd700; }
+    .heat-label { font-size: 12px; color: white; margin-top: 8px; text-shadow: 1px 1px 0 #1a1a2e; }
+
+    /* Target cards */
+    .target-section { width: 90%; max-width: 400px; margin-top: 20px; }
+    .toss-label { font-size: 12px; color: white; text-align: center; letter-spacing: 2px; text-shadow: 1px 1px 0 #1a1a2e; margin-bottom: 10px; }
+    .target-scroll { display: flex; gap: 10px; overflow-x: auto; padding: 4px; justify-content: center; }
+    .target-card {
+      background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3);
+      padding: 10px 16px; text-align: center; cursor: pointer; min-width: 100px; flex-shrink: 0;
+    }
+    .target-card.selected { border: 3px solid #ffd700; background: rgba(255,255,255,0.3); }
+    .target-name { font-size: 13px; color: white; }
+    .target-stat { font-size: 8px; color: #b5e8a3; margin-top: 4px; }
+
+    /* Toss button area */
+    .toss-area {
+      width: 80%; max-width: 320px; padding: 18px; text-align: center;
+      cursor: pointer; margin-top: 20px;
+    }
+    .toss-hint { font-size: 9px; color: #ffd700; margin-top: 6px; }
+
+    /* Share row */
+    .share-row { display: flex; gap: 12px; margin-top: 14px; }
+    .share-btn {
+      background: white; border: 3px solid #5c3d2e; border-bottom-width: 5px;
+      padding: 10px 14px; text-align: center; cursor: pointer; min-width: 60px;
+    }
+    .share-icon { font-size: 22px; }
+    .share-label { font-size: 8px; color: #1a1a2e; margin-top: 4px; font-family: 'Press Start 2P', monospace; }
+
+    /* Badge popup */
+    .badge-popup {
+      position: fixed; top: 80px; left: 20px; right: 20px; z-index: 500;
+      background: #9b59b6; border: 3px solid #7d3c98; border-bottom-width: 5px;
+      padding: 16px; text-align: center; display: none;
+    }
+    .badge-popup.show { display: block; animation: slideDown 0.4s ease-out; }
+    @keyframes slideDown { from { transform: translateY(-100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .badge-popup-title { font-size: 10px; color: #ffd700; margin-top: 6px; letter-spacing: 2px; }
+    .badge-popup-name { font-size: 16px; color: white; margin-top: 6px; }
+    .badge-popup-coins { font-size: 12px; color: #ffd700; margin-top: 4px; }
+
+    /* Relief */
+    .relief-emoji { font-size: 72px; }
+    .relief-text { font-size: 40px; color: white; text-shadow: 3px 3px 0 #2d5a1e; margin-top: 12px; letter-spacing: 4px; }
+    .relief-sub { font-size: 14px; color: white; margin-top: 12px; }
+    .coin-earned { font-size: 22px; color: #ffd700; margin-top: 16px; text-shadow: 2px 2px 0 #1a1a2e; animation: floatUp 2s ease-out forwards; }
+    @keyframes floatUp { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-60px); } }
+
+    /* Badge grid */
+    .badge-grid { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; padding: 20px; margin-top: 60px; }
+    .badge-card {
+      background: rgba(255,255,255,0.15); border: 3px solid #ffd700;
+      width: 140px; padding: 18px 10px; text-align: center;
+    }
+    .badge-card.locked { border-color: #444; opacity: 0.4; }
+    .badge-card-icon { font-size: 32px; }
+    .badge-card-name { font-size: 11px; color: white; margin-top: 8px; }
+    .badge-card-desc { font-size: 8px; color: #b5e8a3; margin-top: 6px; }
+
+    /* Toss animation */
+    .potato-tossing {
+      animation: tossUp 0.6s ease-in forwards;
+    }
+    @keyframes tossUp {
+      0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(-120vh) scale(0.2) rotate(720deg); opacity: 0; }
+    }
+
+    /* Receive animation */
+    .potato-receiving {
+      animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes dropIn {
+      0% { transform: translateY(-120vh) scale(0.3) rotate(-360deg); }
+      70% { transform: translateY(10px) scale(1.1) rotate(0deg); }
+      85% { transform: translateY(-8px) scale(0.95); }
+      100% { transform: translateY(0) scale(1) rotate(0deg); }
+    }
+
+    /* Wobble when hot */
+    .potato-wobble { animation: wobble 0.3s infinite; }
+    @keyframes wobble {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-5deg); }
+      75% { transform: rotate(5deg); }
+    }
+    .potato-shake { animation: shake 0.15s infinite; }
+    @keyframes shake {
+      0%, 100% { transform: rotate(0deg) translateX(0); }
+      25% { transform: rotate(-8deg) translateX(-3px); }
+      75% { transform: rotate(8deg) translateX(3px); }
+    }
+
+    /* Coin icon */
+    .coin-icon {
+      display: inline-block; width: 20px; height: 20px; background: #ffd700;
+      border-radius: 50%; border: 2px solid #b8860b; text-align: center;
+      line-height: 16px; font-size: 10px; color: #8b6914;
+    }
+
+    .body-text { font-size: 12px; color: #b5e8a3; margin-top: 8px; }
+    .section-title { font-size: 16px; color: white; text-shadow: 2px 2px 0 #1a1a2e; letter-spacing: 2px; margin-top: 20px; }
+    .back-btn { font-size: 14px; color: white; cursor: pointer; background: none; border: none; font-family: 'Press Start 2P', monospace; }
+  </style>
+</head>
+<body>
+  <!-- Background -->
+  <div class="hills">
+    <div class="hill hill-1"></div>
+    <div class="hill hill-2"></div>
+    <div class="hill hill-3"></div>
+    <div class="hill hill-4"></div>
+  </div>
+  <div class="shamrock" style="left:12%; bottom:22%;">&#9752;</div>
+  <div class="shamrock" style="left:52%; bottom:32%;">&#9752;</div>
+  <div class="shamrock" style="right:12%; bottom:18%;">&#9752;</div>
+  <div class="cloud cloud-1"></div>
+  <div class="cloud cloud-2"></div>
+  <div class="edge-glow" id="edgeGlow" style="position:fixed;top:0;left:0;right:0;bottom:0;"></div>
+
+  <!-- Header (hidden on title) -->
+  <div class="header" id="header" style="display:none;">
+    <div class="coin-display"><span class="coin-icon">P</span> <span id="coinCount">10</span></div>
+    <div class="badge-display" onclick="showScreen('badges')">&#127941; <span id="badgeCount">0</span></div>
+  </div>
+
+  <!-- Badge popup -->
+  <div class="badge-popup" id="badgePopup">
+    <div id="badgePopupIcon" style="font-size:32px;"></div>
+    <div class="badge-popup-title">BADGE UNLOCKED!</div>
+    <div class="badge-popup-name" id="badgePopupName"></div>
+    <div class="badge-popup-coins" id="badgePopupCoins"></div>
+  </div>
+
+  <!-- TITLE SCREEN -->
+  <div class="screen active" id="screen-title" style="justify-content:center;">
+    <div class="title-text">HOT</div>
+    <canvas id="titlePotato" width="100" height="100" class="potato-canvas" style="margin:16px 0;"></canvas>
+    <div class="title-text">POTATO</div>
+    <div class="subtitle">An Irish Farm Adventure</div>
+    <input class="name-input" id="nameInput" placeholder="Enter yer name, lad..." maxlength="16" style="margin-top:36px;">
+    <a class="pixel-btn disabled" id="startBtn" onclick="startGame()" style="margin-top:20px;">START GAME</a>
+  </div>
+
+  <!-- LOBBY SCREEN -->
+  <div class="screen" id="screen-lobby" style="padding-top:70px;">
+    <canvas id="lobbyPotato" width="60" height="60" class="potato-canvas"></canvas>
+    <div class="section-title" id="welcomeText">Welcome!</div>
+    <div class="body-text">Yer farm is peaceful... for now.</div>
+    <a class="pixel-btn orange" onclick="receivePotato()" style="margin-top:30px;">&#129364; CATCH A POTATO</a>
+    <div class="section-title" style="margin-top:36px;">Toss to a Friend</div>
+    <div class="share-row">
+      <div class="share-btn"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
+      <div class="share-btn"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
+      <div class="share-btn"><div class="share-icon">&#128241;</div><div class="share-label">Bump</div></div>
+      <div class="share-btn"><div class="share-icon">&#128279;</div><div class="share-label">Link</div></div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="screen-game" style="justify-content:center;">
+    <!-- Has potato -->
+    <div id="hasPotato" style="display:flex;flex-direction:column;align-items:center;">
+      <div class="heat-bar-wrap"><div class="heat-bar-fill" id="heatFill"></div></div>
+      <div class="heat-label" id="heatLabel">&#129364; Fresh potato</div>
+      <div class="potato-container" id="potatoContainer" style="margin:24px 0;">
+        <div class="sweat sweat-1">&#128167;</div>
+        <div class="sweat sweat-2">&#128167;</div>
+        <div class="sweat sweat-3">&#128167;</div>
+        <canvas id="gamePotato" width="120" height="120" class="potato-canvas"></canvas>
+      </div>
+      <div class="target-section">
+        <div class="toss-label">TOSS TO:</div>
+        <div class="target-scroll" id="targetScroll"></div>
+      </div>
+      <div class="toss-area pixel-btn" id="tossBtn" onclick="tossPotato()">
+        <div>&#11014;&#65039; SWIPE UP TO TOSS!</div>
+        <div class="toss-hint" id="tossHint">+2 coins</div>
+      </div>
+    </div>
+    <!-- No potato -->
+    <div id="noPotato" style="display:none;flex-direction:column;align-items:center;">
+      <canvas id="emptyPotato" width="80" height="80" class="potato-canvas"></canvas>
+      <div style="font-size:16px;color:white;margin-top:20px;text-shadow:2px 2px 0 #1a1a2e;">No potato right now.</div>
+      <div class="body-text">Enjoy the peace while it lasts...</div>
+      <a class="pixel-btn" onclick="showScreen('lobby')" style="margin-top:20px;">&#8592; BACK TO FARM</a>
+    </div>
+  </div>
+
+  <!-- RELIEF SCREEN -->
+  <div class="screen" id="screen-relief" style="justify-content:center;background:#80e8c0;">
+    <div class="relief-emoji">&#128566;&#8205;&#128168;</div>
+    <div class="relief-text">PHEW!</div>
+    <div class="relief-sub" id="reliefTarget"></div>
+    <div class="coin-earned" id="reliefCoins"></div>
+  </div>
+
+  <!-- BADGES SCREEN -->
+  <div class="screen" id="screen-badges" style="background:#2d5a1e;">
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:16px 20px;margin-top:10px;">
+      <button class="back-btn" onclick="showScreen(state.hasPotato?'game':'lobby')">&#8592; Back</button>
+      <div style="font-size:16px;color:white;letter-spacing:2px;">Badges</div>
+      <div style="width:60px;"></div>
+    </div>
+    <div class="badge-grid" id="badgeGrid"></div>
+  </div>
+
+  <script>
+    // --- GAME STATE ---
+    const CONNECTIONS = [
+      { id: 'p1', name: 'Sean', tossesFrom: 5, lastPlayed: '1h ago' },
+      { id: 'p2', name: 'Brigid', tossesFrom: 2, lastPlayed: '2h ago' },
+      { id: 'p3', name: 'Paddy', tossesFrom: 4, lastPlayed: '10m ago' },
+    ];
+    const BADGE_DEFS = {
+      FIRST_TOSS: { icon: '\u{1F954}\u2708\uFE0F', name: 'First Toss', desc: 'Tossed your first potato!', coins: 5 },
+      FIRST_CATCH: { icon: '\u{1F932}', name: 'First Catch', desc: 'Caught your first potato!', coins: 5 },
+      BURNED: { icon: '\u{1F525}', name: 'Burned!', desc: 'Got burned for the first time', coins: 3 },
+      HOT_HANDS: { icon: '\u{1F590}\uFE0F\u{1F525}', name: 'Hot Hands', desc: '5 hot tosses', coins: 10 },
+      STREAK_3: { icon: '\u26A1', name: 'On a Roll', desc: '3 toss streak', coins: 8 },
+      STREAK_10: { icon: '\u{1F31F}', name: 'Streak Master', desc: '10 toss streak', coins: 20 },
+    };
+
+    const state = {
+      name: '', coins: 10, badges: [], hasPotato: false,
+      heat: 0, selectedTarget: CONNECTIONS[2], heatInterval: null,
+    };
+
+    // --- PIXEL ART ---
+    const POTATO_NORMAL = [
+      [0,0,1,1,1,0,0,0],[0,1,2,2,2,1,0,0],[1,2,3,3,2,2,1,0],[1,2,3,3,3,2,1,0],
+      [1,2,2,3,3,2,1,0],[0,1,2,2,2,2,1,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0],
+    ];
+    const POTATO_HOT = [
+      [0,4,1,1,1,4,0,0],[5,1,5,5,5,1,5,0],[1,5,6,6,5,5,1,0],[1,5,6,6,6,5,1,0],
+      [1,5,5,6,6,5,1,0],[0,1,5,5,5,5,1,0],[4,0,1,1,1,1,0,4],[0,0,4,1,1,4,0,0],
+    ];
+    const PALETTE = { 0: null, 1: '#5c3d2e', 2: '#c9a84c', 3: '#f5e6b8', 4: '#ff4444', 5: '#ff8c42', 6: '#ffd700' };
+    const BURNED_PALETTE = { 0: null, 1: '#333', 2: '#555', 3: '#777', 4: '#444', 5: '#555', 6: '#666' };
+
+    function drawPotato(canvasId, isHot, isBurned) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const px = c.width / 8;
+      const data = isHot ? POTATO_HOT : POTATO_NORMAL;
+      const pal = isBurned ? BURNED_PALETTE : PALETTE;
+      ctx.clearRect(0, 0, c.width, c.height);
+      data.forEach((row, y) => row.forEach((v, x) => {
+        if (pal[v]) { ctx.fillStyle = pal[v]; ctx.fillRect(x * px, y * px, px, px); }
+      }));
+    }
+
+    // Draw initial potatoes
+    setTimeout(() => {
+      drawPotato('titlePotato', true);
+      drawPotato('lobbyPotato', false);
+      drawPotato('emptyPotato', false);
+    }, 100);
+
+    // --- SCREEN MANAGEMENT ---
+    function showScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-' + name).classList.add('active');
+      document.getElementById('header').style.display = (name === 'title') ? 'none' : 'flex';
+      if (name === 'badges') renderBadges();
+      if (name === 'game') renderGameState();
+    }
+
+    // --- TITLE / START ---
+    const nameInput = document.getElementById('nameInput');
+    const startBtn = document.getElementById('startBtn');
+    nameInput.addEventListener('input', () => {
+      state.name = nameInput.value.trim();
+      startBtn.classList.toggle('disabled', !state.name);
+    });
+    function startGame() {
+      if (!state.name) return;
+      document.getElementById('welcomeText').textContent = 'Welcome, ' + state.name + '!';
+      updateUI();
+      showScreen('lobby');
+    }
+
+    // --- UI UPDATES ---
+    function updateUI() {
+      document.getElementById('coinCount').textContent = state.coins;
+      document.getElementById('badgeCount').textContent = state.badges.length;
+    }
+
+    // --- RECEIVE POTATO ---
+    function receivePotato() {
+      state.hasPotato = true;
+      state.heat = 0;
+      showScreen('game');
+      renderGameState();
+      // Animate drop-in
+      const container = document.getElementById('potatoContainer');
+      container.classList.remove('potato-receiving');
+      void container.offsetWidth;
+      container.classList.add('potato-receiving');
+      setTimeout(() => container.classList.remove('potato-receiving'), 900);
+      // Start heat
+      startHeat();
+      // Badge
+      awardBadge('FIRST_CATCH');
+    }
+
+    function startHeat() {
+      clearInterval(state.heatInterval);
+      state.heatInterval = setInterval(() => {
+        state.heat = Math.min(state.heat + 0.02, 1);
+        renderHeat();
+        if (state.heat >= 1) {
+          clearInterval(state.heatInterval);
+          burnPotato();
+        }
+      }, 500);
+    }
+
+    function renderHeat() {
+      const fill = document.getElementById('heatFill');
+      const label = document.getElementById('heatLabel');
+      const glow = document.getElementById('edgeGlow');
+      const container = document.getElementById('potatoContainer');
+      const tossBtn = document.getElementById('tossBtn');
+      const hint = document.getElementById('tossHint');
+      const h = state.heat;
+      fill.style.width = (h * 100) + '%';
+
+      // Sweats
+      document.querySelectorAll('.sweat').forEach(s => s.classList.toggle('visible', h > 0.4));
+
+      if (h > 0.85) {
+        fill.style.backgroundColor = '#cc0000';
+        label.innerHTML = '&#128293; DANGER! TOSS NOW!';
+        label.style.color = '#ff4444';
+        glow.className = 'edge-glow active';
+        container.className = 'potato-container potato-shake';
+        tossBtn.className = 'toss-area pixel-btn red';
+        hint.textContent = '+10 DANGER BONUS!';
+        drawPotato('gamePotato', true);
+      } else if (h > 0.5) {
+        fill.style.backgroundColor = '#ff8c42';
+        label.innerHTML = '&#9832;&#65039; Getting hot...';
+        label.style.color = 'white';
+        glow.className = 'edge-glow hot';
+        container.className = 'potato-container potato-wobble';
+        tossBtn.className = 'toss-area pixel-btn orange';
+        hint.textContent = '+5 hot toss bonus';
+        drawPotato('gamePotato', true);
+      } else {
+        fill.style.backgroundColor = '#ffd700';
+        label.innerHTML = '&#129364; Fresh potato';
+        label.style.color = 'white';
+        glow.className = 'edge-glow';
+        container.className = 'potato-container';
+        tossBtn.className = 'toss-area pixel-btn';
+        hint.textContent = '+2 coins';
+        drawPotato('gamePotato', false);
+      }
+
+      // Background color shift
+      const bg = h < 0.3 ? '#87ceeb' : h < 0.6 ? '#c8a87a' : h < 0.85 ? '#e88a5a' : '#ff6b6b';
+      document.body.style.background = bg;
+    }
+
+    // --- TOSS ---
+    function tossPotato() {
+      if (!state.hasPotato || !state.selectedTarget) return;
+      clearInterval(state.heatInterval);
+
+      // Toss animation
+      const container = document.getElementById('potatoContainer');
+      container.classList.add('potato-tossing');
+
+      setTimeout(() => {
+        // Calculate reward
+        let earned = 2, type = '';
+        if (state.heat >= 0.85) { earned = 10; type = '&#128293; DANGER BONUS!'; }
+        else if (state.heat >= 0.5) { earned = 5; type = '&#9832;&#65039; HOT BONUS!'; }
+
+        state.coins += earned;
+        state.hasPotato = false;
+        state.heat = 0;
+
+        // Reset visuals
+        container.classList.remove('potato-tossing');
+        document.getElementById('edgeGlow').className = 'edge-glow';
+        document.body.style.background = '#87ceeb';
+        document.querySelectorAll('.sweat').forEach(s => s.classList.remove('visible'));
+
+        // Badge
+        awardBadge('FIRST_TOSS');
+
+        // Show relief
+        document.getElementById('reliefTarget').textContent = 'Potato tossed to ' + state.selectedTarget.name + '!';
+        document.getElementById('reliefCoins').innerHTML = '<span class="coin-icon">P</span> +' + earned + ' ' + type;
+        updateUI();
+        showScreen('relief');
+
+        setTimeout(() => {
+          showScreen('game');
+          renderGameState();
+        }, 2500);
+      }, 650);
+    }
+
+    // --- BURN ---
+    function burnPotato() {
+      state.coins = Math.max(0, state.coins - 3);
+      state.hasPotato = false;
+      state.heat = 0;
+      document.getElementById('edgeGlow').className = 'edge-glow';
+      document.body.style.background = '#87ceeb';
+      document.querySelectorAll('.sweat').forEach(s => s.classList.remove('visible'));
+      updateUI();
+      awardBadge('BURNED');
+      alert('BURNED! The potato burned ye! -3 coins');
+      showScreen('game');
+      renderGameState();
+    }
+
+    // --- RENDER GAME STATE ---
+    function renderGameState() {
+      const has = document.getElementById('hasPotato');
+      const no = document.getElementById('noPotato');
+      if (state.hasPotato) {
+        has.style.display = 'flex';
+        no.style.display = 'none';
+        drawPotato('gamePotato', state.heat > 0.5);
+        renderTargets();
+      } else {
+        has.style.display = 'none';
+        no.style.display = 'flex';
+        drawPotato('emptyPotato', false);
+      }
+    }
+
+    function renderTargets() {
+      const scroll = document.getElementById('targetScroll');
+      scroll.innerHTML = CONNECTIONS.map(c => 
+        '<div class="target-card' + (state.selectedTarget.id === c.id ? ' selected' : '') + '" onclick="selectTarget(\'' + c.id + '\')">' +
+        '<div class="target-name">' + c.name + '</div>' +
+        '<div class="target-stat">Tossed you ' + c.tossesFrom + 'x</div>' +
+        '<div class="target-stat">' + c.lastPlayed + '</div></div>'
+      ).join('');
+    }
+
+    function selectTarget(id) {
+      state.selectedTarget = CONNECTIONS.find(c => c.id === id);
+      renderTargets();
+    }
+
+    // --- BADGES ---
+    function awardBadge(id) {
+      if (state.badges.includes(id)) return;
+      const def = BADGE_DEFS[id];
+      if (!def) return;
+      state.badges.push(id);
+      state.coins += def.coins;
+      updateUI();
+      // Show popup
+      const popup = document.getElementById('badgePopup');
+      document.getElementById('badgePopupIcon').textContent = def.icon;
+      document.getElementById('badgePopupName').textContent = def.name;
+      document.getElementById('badgePopupCoins').innerHTML = '<span class="coin-icon">P</span> +' + def.coins;
+      popup.classList.add('show');
+      setTimeout(() => popup.classList.remove('show'), 2500);
+    }
+
+    function renderBadges() {
+      const grid = document.getElementById('badgeGrid');
+      grid.innerHTML = Object.entries(BADGE_DEFS).map(([key, def]) => {
+        const earned = state.badges.includes(key);
+        return '<div class="badge-card' + (earned ? '' : ' locked') + '">' +
+          '<div class="badge-card-icon">' + (earned ? def.icon : '&#128274;') + '</div>' +
+          '<div class="badge-card-name">' + def.name + '</div>' +
+          '<div class="badge-card-desc">' + def.desc + '</div></div>';
+      }).join('');
+    }
+
+    // --- SWIPE GESTURE ---
+    let touchStartY = 0;
+    document.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; });
+    document.addEventListener('touchend', e => {
+      const dy = touchStartY - e.changedTouches[0].clientY;
+      if (dy > 80 && state.hasPotato) tossPotato();
+    });
+  </script>
+</body>
+</html>
