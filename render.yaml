@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: potatogame
+    env: static
+    staticPublishPath: .
+    autoDeploy: false
