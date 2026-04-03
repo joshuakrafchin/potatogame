@@ -3,4 +3,4 @@ services:
     name: potatogame
     env: static
     staticPublishPath: .
-    autoDeploy: false
+    autoDeploy: true
