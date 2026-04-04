@@ -17,6 +17,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+// Admin: reset all player data
+app.post('/admin/reset', (req, res) => {
+  if (gameManager.db) {
+    gameManager.db.db.exec('DELETE FROM players; DELETE FROM pending_potatoes;');
+  }
+  gameManager.players.clear();
+  io.emit('force_reload', {});
+  res.json({ status: 'cleared' });
+});
+
 // Catch potato landing page (viral entry point)
 app.get('/catch/:tossId', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'catch.html'));
