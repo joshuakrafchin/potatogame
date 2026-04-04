@@ -73,17 +73,31 @@ io.on('connection', (socket) => {
     broadcastPlayerList();
   });
 
-  // Request a test potato (for demo/testing)
-  socket.on('request_test_potato', () => {
+  // Unearth a potato from the farm (limited to N-1 total potatoes)
+  socket.on('unearth_potato', () => {
     const player = gameManager.getPlayer(socket.id);
     if (!player) return;
-    if (player.potato) { socket.emit('error', { message: 'You already have a potato!' }); return; }
+    if (player.potato) { socket.emit('error', { message: 'Ye already have a potato!' }); return; }
+
+    // Count total active potatoes (online players holding one)
+    let totalPotatoes = 0;
+    let totalPlayers = gameManager.players.size;
+    gameManager.players.forEach(p => { if (p.potato) totalPotatoes++; });
+
+    // Max potatoes = total players - 1 (someone must have free hands!)
+    const maxPotatoes = Math.max(totalPlayers - 1, 1);
+    if (totalPotatoes >= maxPotatoes) {
+      socket.emit('error', { message: 'Too many potatoes out! Wait for someone to get burned.' });
+      return;
+    }
+
     const { createPotato } = require('./game');
     const potato = createPotato('GOLDEN');
     potato.holderId = socket.id;
     player.potato = potato;
     player.stats.totalReceived++;
     const badges = gameManager._checkBadges(player);
+    gameManager.persistPlayer(player);
     socket.emit('potato_received', {
       player: gameManager.getPlayerPublic(player),
       potato,

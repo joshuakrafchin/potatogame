@@ -304,7 +304,7 @@
     <div class="section-title" id="welcomeText">Welcome!</div>
     <div class="body-text">Yer farm is peaceful... for now.</div>
     <div class="body-text" id="playerCount" style="margin-top:8px;color:#ffd700;">Connecting...</div>
-    <a class="pixel-btn orange" onclick="receivePotato()" style="margin-top:20px;">&#129364; CATCH A POTATO</a>
+    <a class="pixel-btn orange" onclick="unearthPotato()" style="margin-top:20px;">&#9935;&#65039; UNEARTH A POTATO</a>
     <div class="section-title" style="margin-top:36px;">Toss to a Friend</div>
     <div class="share-row">
       <div class="share-btn"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
@@ -368,7 +368,7 @@
     // --- GAME STATE ---
     const BADGE_DEFS = {
       FIRST_TOSS: { icon: '\u{1F954}\u2708\uFE0F', name: 'First Toss', desc: 'Tossed your first potato!', coins: 5 },
-      FIRST_CATCH: { icon: '\u{1F932}', name: 'First Catch', desc: 'Caught your first potato!', coins: 5 },
+      FIRST_CATCH: { icon: '\u{1F932}', name: 'First Dig', desc: 'Unearthed your first potato!', coins: 5 },
       BURNED: { icon: '\u{1F525}', name: 'Burned!', desc: 'Got burned for the first time', coins: 3 },
       HOT_HANDS: { icon: '\u{1F590}\uFE0F\u{1F525}', name: 'Hot Hands', desc: '5 hot tosses', coins: 10 },
       STREAK_3: { icon: '\u26A1', name: 'On a Roll', desc: '3 toss streak', coins: 8 },
@@ -568,11 +568,9 @@
     }
 
     // --- RECEIVE POTATO (local demo fallback if no server) ---
-    function receivePotato() {
+    function unearthPotato() {
       if (socket && socket.connected) {
-        // In real multiplayer, you receive via someone tossing to you
-        // This button spawns a test potato via server
-        socket.emit('request_test_potato');
+        socket.emit('unearth_potato');
         return;
       }
       // Offline fallback
