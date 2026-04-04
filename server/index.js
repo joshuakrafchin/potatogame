@@ -15,7 +15,7 @@ const gameManager = new GameManager();
 // Serve static landing page
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.1.0' }));
 
 // Admin: reset all player data
 app.post('/admin/reset', (req, res) => {
