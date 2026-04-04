@@ -74,7 +74,7 @@ io.on('connection', (socket) => {
   });
 
   // Unearth a potato from the farm (limited to N-1 total potatoes)
-  socket.on('unearth_potato', () => {
+  socket.on('unearth_potato', ({ potatoType } = {}) => {
     const player = gameManager.getPlayer(socket.id);
     if (!player) return;
     if (player.potato) { socket.emit('error', { message: 'Ye already have a potato!' }); return; }
@@ -91,8 +91,17 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const { createPotato } = require('./game');
-    const potato = createPotato('GOLDEN');
+    // Validate and charge for potato type
+    const { createPotato, POTATO_TYPES } = require('./game');
+    const type = (potatoType && POTATO_TYPES[potatoType]) ? potatoType : 'GOLDEN';
+    const price = POTATO_TYPES[type].basePrice;
+    if (type !== 'GOLDEN' && player.coins < price) {
+      socket.emit('error', { message: 'Not enough coins! Need ' + price + ' PC.' });
+      return;
+    }
+    if (type !== 'GOLDEN') player.coins -= price;
+
+    const potato = createPotato(type);
     potato.holderId = socket.id;
     player.potato = potato;
     player.stats.totalReceived++;
@@ -104,6 +113,8 @@ io.on('connection', (socket) => {
       fromPlayer: 'The Farm',
       badges
     });
+    // Broadcast activity
+    broadcastEvent(player.name + ' unearthed a ' + POTATO_TYPES[type].name + '! ⛏️');
     broadcastPlayerList();
   });
 
@@ -129,6 +140,9 @@ io.on('connection', (socket) => {
         badges: result.receiverBadges
       });
     }
+    // Broadcast activity
+    const tossEmoji = result.tossType === 'danger' ? '🔥' : result.tossType === 'hot' ? '♨️' : '🥔';
+    broadcastEvent(result.tosser.name + ' tossed a potato to ' + result.receiver.name + '! ' + tossEmoji);
     broadcastPlayerList();
   });
 
@@ -214,6 +228,10 @@ function broadcastPlayerList() {
     });
   }
   io.emit('player_list', { players });
+}
+
+function broadcastEvent(text) {
+  io.emit('game_event', { text, time: Date.now() });
 }
 
 // Game tick — burn timers

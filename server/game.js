@@ -431,6 +431,8 @@ class GameManager {
           coinsLost: Math.abs(ECONOMY.BURN_PENALTY),
           badges
         });
+        // Broadcast burn event
+        io.emit('game_event', { text: player.name + ' got BURNED! 💥🔥', time: now });
         this.persistPlayer(player);
       }
     });
