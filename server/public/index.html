@@ -790,11 +790,15 @@
       if (!state.selectedTarget || !players.find(p => p.id === state.selectedTarget.id)) {
         state.selectedTarget = players[0];
       }
-      scroll.innerHTML = players.map(c =>
-        '<div class="target-card' + (state.selectedTarget && state.selectedTarget.id === c.id ? ' selected' : '') + '" onclick="selectTarget(\'' + c.id + '\')">' +
-        '<div class="target-name">' + c.name + '</div>' +
-        '<div class="target-stat">' + (c.online ? '&#128994;' : '&#9898;') + ' ' + (c.hasPotato ? 'holding potato' : 'free hands') + '</div></div>'
-      ).join('');
+      scroll.innerHTML = players.map(c => {
+        const sel = state.selectedTarget && state.selectedTarget.id === c.id ? ' selected' : '';
+        const npcStyle = c.isNpc ? ' style="border-color:#9b59b6;background:rgba(155,89,182,0.2);"' : '';
+        const statusDot = c.isNpc ? '&#129332;' : c.online ? '&#128994;' : '&#9898;';
+        const statusText = c.isNpc ? c.vibe : (c.hasPotato ? 'holding potato' : 'free hands');
+        return '<div class="target-card' + sel + '"' + npcStyle + ' onclick="selectTarget(\'' + c.id + '\')">' +
+          '<div class="target-name">' + c.name + '</div>' +
+          '<div class="target-stat">' + statusDot + ' ' + statusText + '</div></div>';
+      }).join('');
     }
 
     function selectTarget(id) {
