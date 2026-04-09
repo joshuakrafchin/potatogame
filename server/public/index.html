@@ -1044,22 +1044,53 @@
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       const n = Math.min(players.length, 9);
-      const radius = Math.min(Math.max(Math.min(window.innerWidth, window.innerHeight) * 0.36, 140), 240);
 
-      // Arc span: up to 260° (leaves a gap at the bottom where the user's hand is)
-      // Fewer farmers → tighter arc for cleaner look
-      const arcSpan = Math.min(Math.PI * 260 / 180, (n - 1) * Math.PI / 4 + Math.PI / 2);
+      // Safe zones: keep orbs out of the heat bar at the top and off the edges.
+      // Orb is ~82px wide and ~88px tall; half-sizes used as margins.
+      const ORB_HW = 45;   // half-width + breathing room
+      const ORB_HH = 48;   // half-height + breathing room
+      const TOP_SAFE = 135; // heat bar + label live here
+      const SIDE_SAFE = 12;
+      const BOTTOM_SAFE = 12;
+
+      // Max radius that keeps an orb placed straight up from hitting the heat bar,
+      // and that keeps orbs at ±90° from spilling off the sides.
+      const maxRadiusUp = Math.max(70, cy - TOP_SAFE - ORB_HH);
+      const maxRadiusSide = Math.max(70, Math.min(cx, window.innerWidth - cx) - SIDE_SAFE - ORB_HW);
+      const maxRadiusDown = Math.max(70, window.innerHeight - cy - BOTTOM_SAFE - ORB_HH);
+
+      // Pick the largest radius that still honours the "up" and "side" bounds, clamped
+      // to a sensible range. On tiny viewports this can shrink below 130 — that's fine,
+      // it just means the orbs live closer to the potato.
+      let radius = Math.min(240, Math.max(90, Math.min(maxRadiusUp, maxRadiusSide)));
+
+      // Minimum angle between adjacent orbs so their bounding circles don't touch.
+      const minStep = n > 1 ? 2 * Math.asin(Math.min(1, (ORB_HW + 6) / radius)) : 0;
+      // Ideal arc span: enough to seat all orbs without overlap, up to 280°.
+      const neededSpan = (n - 1) * minStep;
+      const maxSpan = Math.PI * 280 / 180;
+      const arcSpan = Math.min(maxSpan, Math.max(neededSpan, (n - 1) * Math.PI / 5 + Math.PI / 3));
+
+      // If the needed span exceeds our max, we shrink the radius until orbs fit on the 280° arc.
+      // (2 * asin(ORB_HW / r) * (n-1) <= maxSpan  =>  r >= ORB_HW / sin(maxSpan / (2*(n-1))))
+      if (n > 1 && neededSpan > maxSpan) {
+        const needed = (ORB_HW + 6) / Math.sin(maxSpan / (2 * (n - 1)));
+        radius = Math.max(radius, Math.min(240, needed));
+      }
 
       for (let i = 0; i < n; i++) {
         const farmer = players[i];
         const t = n === 1 ? 0 : (i / (n - 1)) - 0.5;
         const theta = t * arcSpan; // 0 = straight up, negative = left, positive = right
+        // Per-orb radius: if this orb is below the potato center (|theta| > 90°), use the
+        // "down" bound so it doesn't spill off the bottom. Otherwise use the top/side bound.
+        let r = radius;
+        if (Math.abs(theta) > Math.PI / 2) {
+          r = Math.min(r, maxRadiusDown);
+        }
         // Screen coords: sin(theta) = x offset, -cos(theta) = y offset (up is -y)
-        let x = cx + Math.sin(theta) * radius;
-        let y = cy - Math.cos(theta) * radius;
-        // Clamp to viewport with a margin
-        x = Math.max(55, Math.min(window.innerWidth - 55, x));
-        y = Math.max(60, Math.min(window.innerHeight - 60, y));
+        const x = cx + Math.sin(theta) * r;
+        const y = cy - Math.cos(theta) * r;
 
         const orb = document.createElement('div');
         orb.className = 'farmer-orb' + (farmer.isNpc ? ' npc' : '') + (!farmer.online ? ' offline' : '');
