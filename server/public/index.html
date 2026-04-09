@@ -252,6 +252,31 @@
       line-height: 16px; font-size: 10px; color: #8b6914;
     }
 
+    /* Activity feed */
+    .activity-feed {
+      width: 90%; max-width: 360px; margin-top: 16px; max-height: 140px;
+      overflow-y: auto; background: rgba(0,0,0,0.25); border: 2px solid rgba(255,255,255,0.15);
+      padding: 8px; scrollbar-width: thin;
+    }
+    .feed-item {
+      font-size: 9px; color: #b5e8a3; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+      animation: feedSlide 0.3s ease-out;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    @keyframes feedSlide { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+
+    /* Shop */
+    .shop-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; justify-content: center; }
+    .shop-item {
+      background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.2);
+      padding: 10px; text-align: center; min-width: 90px; cursor: pointer;
+    }
+    .shop-item:hover { border-color: #ffd700; background: rgba(255,255,255,0.2); }
+    .shop-item.locked { opacity: 0.4; pointer-events: none; }
+    .shop-name { font-size: 10px; color: white; margin-top: 4px; }
+    .shop-price { font-size: 9px; color: #ffd700; margin-top: 4px; }
+    .shop-desc { font-size: 7px; color: #b5e8a3; margin-top: 2px; }
+
     .body-text { font-size: 12px; color: #b5e8a3; margin-top: 8px; }
     .section-title { font-size: 16px; color: white; text-shadow: 2px 2px 0 #1a1a2e; letter-spacing: 2px; margin-top: 20px; }
     .back-btn { font-size: 14px; color: white; cursor: pointer; background: none; border: none; font-family: 'Press Start 2P', monospace; }
@@ -304,8 +329,18 @@
     <div class="section-title" id="welcomeText">Welcome!</div>
     <div class="body-text">Yer farm is peaceful... for now.</div>
     <div class="body-text" id="playerCount" style="margin-top:8px;color:#ffd700;">Connecting...</div>
-    <a class="pixel-btn orange" onclick="receivePotato()" style="margin-top:20px;">&#129364; CATCH A POTATO</a>
-    <div class="section-title" style="margin-top:36px;">Toss to a Friend</div>
+    <!-- Unearth button with type selector -->
+    <div class="section-title" style="margin-top:16px;">Unearth a Potato</div>
+    <div class="shop-row" id="shopRow"></div>
+
+    <!-- Activity feed -->
+    <div class="section-title" style="margin-top:20px;">Farm Activity</div>
+    <div class="activity-feed" id="activityFeed">
+      <div class="feed-item" style="color:rgba(255,255,255,0.4);">Waiting for farmers...</div>
+    </div>
+
+    <!-- Share -->
+    <div class="section-title" style="margin-top:16px;">Invite Friends</div>
     <div class="share-row">
       <div class="share-btn"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
       <div class="share-btn"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
@@ -368,7 +403,7 @@
     // --- GAME STATE ---
     const BADGE_DEFS = {
       FIRST_TOSS: { icon: '\u{1F954}\u2708\uFE0F', name: 'First Toss', desc: 'Tossed your first potato!', coins: 5 },
-      FIRST_CATCH: { icon: '\u{1F932}', name: 'First Catch', desc: 'Caught your first potato!', coins: 5 },
+      FIRST_CATCH: { icon: '\u{1F932}', name: 'First Dig', desc: 'Unearthed your first potato!', coins: 5 },
       BURNED: { icon: '\u{1F525}', name: 'Burned!', desc: 'Got burned for the first time', coins: 3 },
       HOT_HANDS: { icon: '\u{1F590}\uFE0F\u{1F525}', name: 'Hot Hands', desc: '5 hot tosses', coins: 10 },
       STREAK_3: { icon: '\u26A1', name: 'On a Roll', desc: '3 toss streak', coins: 8 },
@@ -467,8 +502,11 @@
 
       socket.on('player_list', ({ players }) => {
         state.onlinePlayers = players.filter(p => p.id !== state.myId);
-        document.getElementById('playerCount').textContent = players.length + ' player' + (players.length !== 1 ? 's' : '') + ' online';
+        const onlineCount = players.filter(p => p.online).length;
+        document.getElementById('playerCount').textContent = players.length + ' player' + (players.length !== 1 ? 's' : '') + ' (' + onlineCount + ' online)';
         if (state.hasPotato) renderTargets();
+        // Also update lobby targets
+        renderTargets();
       });
 
       // Someone tossed YOU a potato
@@ -535,6 +573,11 @@
         alert(message);
       });
 
+      // Live activity feed from other players
+      socket.on('game_event', ({ text }) => {
+        addFeedItem(text);
+      });
+
       socket.on('disconnect', () => {
         console.log('Disconnected from server');
         document.getElementById('playerCount').textContent = 'Disconnected...';
@@ -547,6 +590,7 @@
       state.hasPotato = player.hasPotato;
       if (player.potato) state.potato = player.potato;
       updateUI();
+      renderShop();
     }
 
     function showBadgePopup(badgeDef) {
@@ -565,11 +609,10 @@
     }
 
     // --- RECEIVE POTATO (local demo fallback if no server) ---
-    function receivePotato() {
+    function unearthPotato(type) {
+      type = type || 'GOLDEN';
       if (socket && socket.connected) {
-        // In real multiplayer, you receive via someone tossing to you
-        // This button spawns a test potato via server
-        socket.emit('request_test_potato');
+        socket.emit('unearth_potato', { potatoType: type });
         return;
       }
       // Offline fallback
@@ -740,18 +783,22 @@
       const scroll = document.getElementById('targetScroll');
       const players = state.onlinePlayers;
       if (players.length === 0) {
-        scroll.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,0.6);padding:10px;text-align:center;">No other players online yet.<br>Share the link to invite friends!</div>';
+        scroll.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,0.6);padding:10px;text-align:center;">No other players yet.<br>Share the link to invite friends!</div>';
         return;
       }
       // Auto-select first player if none selected
       if (!state.selectedTarget || !players.find(p => p.id === state.selectedTarget.id)) {
         state.selectedTarget = players[0];
       }
-      scroll.innerHTML = players.map(c =>
-        '<div class="target-card' + (state.selectedTarget && state.selectedTarget.id === c.id ? ' selected' : '') + '" onclick="selectTarget(\'' + c.id + '\')">' +
-        '<div class="target-name">' + c.name + '</div>' +
-        '<div class="target-stat">' + (c.hasPotato ? '&#129364; holding potato' : '&#9996;&#65039; free hands') + '</div></div>'
-      ).join('');
+      scroll.innerHTML = players.map(c => {
+        const sel = state.selectedTarget && state.selectedTarget.id === c.id ? ' selected' : '';
+        const npcStyle = c.isNpc ? ' style="border-color:#9b59b6;background:rgba(155,89,182,0.2);"' : '';
+        const statusDot = c.isNpc ? '&#129332;' : c.online ? '&#128994;' : '&#9898;';
+        const statusText = c.isNpc ? c.vibe : (c.hasPotato ? 'holding potato' : 'free hands');
+        return '<div class="target-card' + sel + '"' + npcStyle + ' onclick="selectTarget(\'' + c.id + '\')">' +
+          '<div class="target-name">' + c.name + '</div>' +
+          '<div class="target-stat">' + statusDot + ' ' + statusText + '</div></div>';
+      }).join('');
     }
 
     function selectTarget(id) {
@@ -785,6 +832,37 @@
           '<div class="badge-card-name">' + def.name + '</div>' +
           '<div class="badge-card-desc">' + def.desc + '</div></div>';
       }).join('');
+    }
+
+    // --- POTATO SHOP ---
+    const SHOP_ITEMS = [
+      { type: 'GOLDEN', name: 'Golden', icon: '&#129364;', price: 0, desc: 'Classic hot spud' },
+      { type: 'HOME_FRY', name: 'Home Fry', icon: '&#127839;', price: 8, desc: 'Slow burn, +2 hands' },
+      { type: 'BTC', name: 'BTC Spud', icon: '&#8383;', price: 12, desc: 'Volatile & fast!' },
+      { type: 'PRODUCTIVITY', name: 'Produc-tato', icon: '&#9889;', price: 15, desc: 'Doubles farm speed' },
+    ];
+
+    function renderShop() {
+      const row = document.getElementById('shopRow');
+      row.innerHTML = SHOP_ITEMS.map(item => {
+        const canAfford = state.coins >= item.price;
+        return '<div class="shop-item' + (!canAfford && item.price > 0 ? ' locked' : '') + '" onclick="unearthPotato(\'' + item.type + '\')">' +
+          '<div style="font-size:24px;">' + item.icon + '</div>' +
+          '<div class="shop-name">' + item.name + '</div>' +
+          '<div class="shop-price">' + (item.price === 0 ? 'FREE' : '<span class="coin-icon">P</span> ' + item.price) + '</div>' +
+          '<div class="shop-desc">' + item.desc + '</div></div>';
+      }).join('');
+    }
+
+    // --- ACTIVITY FEED ---
+    const MAX_FEED_ITEMS = 15;
+    const feedItems = [];
+
+    function addFeedItem(text) {
+      feedItems.unshift(text);
+      if (feedItems.length > MAX_FEED_ITEMS) feedItems.pop();
+      const feed = document.getElementById('activityFeed');
+      feed.innerHTML = feedItems.map(t => '<div class="feed-item">' + t + '</div>').join('');
     }
 
     // --- COIN SHOWER ANIMATION ---
