@@ -52,6 +52,13 @@
     /* Screens */
     .screen { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; flex-direction: column; align-items: center; }
     .screen.active { display: flex; }
+    /* Lobby and badges can scroll (long content); game/title/relief stay as gesture surfaces */
+    #screen-lobby, #screen-badges {
+      overflow-y: auto;
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 40px;
+    }
 
     /* Header bar */
     .header { position: fixed; top: 0; left: 0; right: 0; z-index: 200; display: flex; justify-content: space-between; padding: 16px 20px; }
@@ -105,17 +112,40 @@
     .heat-bar-fill { height: 100%; width: 0%; transition: width 0.4s, background-color 0.4s; background: #ffd700; }
     .heat-label { font-size: 12px; color: white; margin-top: 8px; text-shadow: 1px 1px 0 #1a1a2e; }
 
-    /* Target cards */
-    .target-section { width: 90%; max-width: 400px; margin-top: 20px; }
-    .toss-label { font-size: 12px; color: white; text-align: center; letter-spacing: 2px; text-shadow: 1px 1px 0 #1a1a2e; margin-bottom: 10px; }
-    .target-scroll { display: flex; gap: 10px; overflow-x: auto; padding: 4px; justify-content: center; }
-    .target-card {
-      background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3);
-      padding: 10px 16px; text-align: center; cursor: pointer; min-width: 100px; flex-shrink: 0;
+    /* Farmer ring (new: direction-based target picker) */
+    .farmer-field {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; z-index: 50;
     }
-    .target-card.selected { border: 3px solid #ffd700; background: rgba(255,255,255,0.3); }
-    .target-name { font-size: 13px; color: white; }
-    .target-stat { font-size: 8px; color: #b5e8a3; margin-top: 4px; }
+    .farmer-orb {
+      position: absolute; width: 82px; padding: 8px 4px; text-align: center;
+      background: rgba(0,0,0,0.35); border: 2px solid rgba(255,255,255,0.35);
+      transform: translate(-50%, -50%);
+      transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+      pointer-events: none;
+    }
+    .farmer-orb.npc { border-color: #9b59b6; background: rgba(80,40,120,0.5); }
+    .farmer-orb.offline { opacity: 0.65; }
+    .farmer-orb.targeted {
+      transform: translate(-50%, -50%) scale(1.25);
+      background: rgba(255,215,0,0.35);
+      border-color: #ffd700;
+      box-shadow: 0 0 30px rgba(255,215,0,0.7);
+    }
+    .farmer-emoji { font-size: 26px; line-height: 1; }
+    .farmer-name { font-size: 8px; color: white; margin-top: 4px; letter-spacing: 1px; word-break: break-word; }
+    .farmer-status { font-size: 6px; color: #b5e8a3; margin-top: 3px; }
+    .farmer-orb.targeted .farmer-status { color: #ffd700; }
+
+    /* Aim line while dragging */
+    .aim-line {
+      position: fixed; top: 0; left: 0; pointer-events: none; z-index: 55;
+      width: 6px; background: rgba(255,215,0,0.35); border-radius: 3px;
+      transform-origin: 3px 0; opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .aim-line.visible { opacity: 1; }
+    .aim-line.weak { background: rgba(255,255,255,0.25); }
 
     /* Toss button area */
     .toss-area {
@@ -149,6 +179,58 @@
     .relief-emoji { font-size: 72px; }
     .relief-text { font-size: 40px; color: white; text-shadow: 3px 3px 0 #2d5a1e; margin-top: 12px; letter-spacing: 4px; }
     .relief-sub { font-size: 14px; color: white; margin-top: 12px; }
+
+    /* Burned */
+    #screen-burned {
+      animation: burnFlash 0.5s ease-out;
+    }
+    @keyframes burnFlash {
+      0% { background: #ffcc00; }
+      40% { background: #ff4400; }
+      100% { background: #4a0000; }
+    }
+    .burn-fire {
+      font-size: 96px;
+      animation: burnShake 0.3s infinite;
+      filter: drop-shadow(0 0 20px #ff4400);
+    }
+    @keyframes burnShake {
+      0%, 100% { transform: translate(0, 0) rotate(-3deg); }
+      25% { transform: translate(-4px, 2px) rotate(3deg); }
+      50% { transform: translate(3px, -2px) rotate(-2deg); }
+      75% { transform: translate(-2px, 3px) rotate(2deg); }
+    }
+    .burn-text {
+      font-size: 48px;
+      color: #ffd700;
+      text-shadow: 4px 4px 0 #5c0000, 0 0 20px #ff4400;
+      margin-top: 16px;
+      letter-spacing: 5px;
+      animation: burnPulse 0.6s ease-out;
+    }
+    @keyframes burnPulse {
+      0% { transform: scale(0.3); opacity: 0; }
+      60% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .burn-sub { font-size: 12px; color: #ffaa66; margin-top: 16px; letter-spacing: 1px; text-shadow: 1px 1px 0 #1a0000; }
+    .burn-coins {
+      font-size: 24px; color: #ff6666; margin-top: 20px;
+      text-shadow: 2px 2px 0 #1a0000;
+    }
+
+    /* Toast (replaces alerts) */
+    .toast {
+      position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-100px);
+      background: rgba(0,0,0,0.85); color: white; border: 2px solid #ffd700;
+      padding: 12px 18px; font-family: 'Press Start 2P', monospace; font-size: 10px;
+      max-width: 85%; text-align: center; letter-spacing: 1px; line-height: 1.6;
+      z-index: 700; pointer-events: none; opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.error { border-color: #ff4444; }
+    .toast.success { border-color: #7bc96f; }
     .coin-earned { font-size: 22px; color: #ffd700; margin-top: 16px; text-shadow: 2px 2px 0 #1a1a2e; animation: coinPop 0.5s ease-out; }
     @keyframes coinPop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.3); } 100% { transform: scale(1); opacity: 1; } }
 
@@ -318,7 +400,7 @@
     <div class="title-text">HOT</div>
     <canvas id="titlePotato" width="100" height="100" class="potato-canvas" style="margin:16px 0;"></canvas>
     <div class="title-text">POTATO</div>
-    <div class="subtitle">An Irish Farm Adventure</div>
+    <div class="subtitle" id="titleSubtitle">An Irish Farm Adventure</div>
     <input class="name-input" id="nameInput" placeholder="Enter yer name, lad..." maxlength="16" style="margin-top:36px;">
     <a class="pixel-btn disabled" id="startBtn" onclick="startGame()" style="margin-top:20px;">START GAME</a>
   </div>
@@ -329,53 +411,57 @@
     <div class="section-title" id="welcomeText">Welcome!</div>
     <div class="body-text">Yer farm is peaceful... for now.</div>
     <div class="body-text" id="playerCount" style="margin-top:8px;color:#ffd700;">Connecting...</div>
-    <!-- Unearth button with type selector -->
-    <div class="section-title" style="margin-top:16px;">Unearth a Potato</div>
-    <div class="shop-row" id="shopRow"></div>
+
+    <!-- Primary action: toss a potato to a friend via share link -->
+    <div class="section-title" style="margin-top:22px;">Toss a Potato</div>
+    <div class="body-text" style="max-width:340px;text-align:center;">Send someone a hot potato. They tap the link and the spud flies at them!</div>
+    <div class="share-row">
+      <div class="share-btn" onclick="shareToss('text')"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
+      <div class="share-btn" onclick="shareToss('email')"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
+      <div class="share-btn" onclick="shareToss('link')"><div class="share-icon">&#128279;</div><div class="share-label">Link</div></div>
+    </div>
 
     <!-- Activity feed -->
-    <div class="section-title" style="margin-top:20px;">Farm Activity</div>
+    <div class="section-title" style="margin-top:22px;">Farm Activity</div>
     <div class="activity-feed" id="activityFeed">
       <div class="feed-item" style="color:rgba(255,255,255,0.4);">Waiting for farmers...</div>
     </div>
 
-    <!-- Share -->
-    <div class="section-title" style="margin-top:16px;">Invite Friends</div>
-    <div class="share-row">
-      <div class="share-btn"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
-      <div class="share-btn"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
-      <div class="share-btn"><div class="share-icon">&#128241;</div><div class="share-label">Bump</div></div>
-      <div class="share-btn"><div class="share-icon">&#128279;</div><div class="share-label">Link</div></div>
-    </div>
+    <!-- Secondary: dig one up for yerself -->
+    <div class="section-title" style="margin-top:22px;">Or Unearth One Yerself</div>
+    <div class="shop-row" id="shopRow"></div>
   </div>
 
   <!-- GAME SCREEN -->
-  <div class="screen" id="screen-game" style="justify-content:center;">
+  <div class="screen" id="screen-game" style="justify-content:flex-start;">
+    <!-- Farmer ring (targets orbit the potato; direction of drag picks one) -->
+    <div class="farmer-field" id="farmerField"></div>
+    <!-- Aim line rendered while dragging -->
+    <div class="aim-line" id="aimLine"></div>
+
     <!-- Has potato -->
-    <div id="hasPotato" style="display:flex;flex-direction:column;align-items:center;">
+    <div id="hasPotato" style="display:flex;flex-direction:column;align-items:center;width:100%;padding-top:70px;">
       <div class="heat-bar-wrap"><div class="heat-bar-fill" id="heatFill"></div></div>
       <div class="heat-label" id="heatLabel">&#129364; Fresh potato</div>
-      <div class="potato-container" id="potatoContainer" style="margin:24px 0;position:relative;">
-        <div class="swipe-hint">&#11014;&#65039; swipe up</div>
+      <div class="potato-container" id="potatoContainer" style="margin-top:32vh;position:relative;">
+        <div class="swipe-hint">drag to a farmer</div>
         <div class="sweat sweat-1">&#128167;</div>
         <div class="sweat sweat-2">&#128167;</div>
         <div class="sweat sweat-3">&#128167;</div>
         <canvas id="gamePotato" width="120" height="120" class="potato-canvas"></canvas>
       </div>
-      <div class="target-section">
-        <div class="toss-label">TOSS TO:</div>
-        <div class="target-scroll" id="targetScroll"></div>
-      </div>
-      <div class="toss-area pixel-btn" id="tossBtn" onclick="tossPotato()">
-        <div>&#11014;&#65039; SWIPE UP TO TOSS!</div>
-        <div class="toss-hint" id="tossHint">+2 coins</div>
-      </div>
+      <div id="tossHint" style="font-size:9px;color:#ffd700;margin-top:10px;text-shadow:1px 1px 0 #1a1a2e;letter-spacing:1px;">+2 coins</div>
     </div>
     <!-- No potato -->
     <div id="noPotato" style="display:none;flex-direction:column;align-items:center;">
       <canvas id="emptyPotato" width="80" height="80" class="potato-canvas"></canvas>
       <div style="font-size:16px;color:white;margin-top:20px;text-shadow:2px 2px 0 #1a1a2e;">No potato right now.</div>
-      <div class="body-text">Enjoy the peace while it lasts...</div>
+      <div class="body-text">Toss one to a friend to get the farm goin'!</div>
+      <div class="share-row" style="margin-top:16px;">
+        <div class="share-btn" onclick="shareToss('text')"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
+        <div class="share-btn" onclick="shareToss('email')"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
+        <div class="share-btn" onclick="shareToss('link')"><div class="share-icon">&#128279;</div><div class="share-label">Link</div></div>
+      </div>
       <a class="pixel-btn" onclick="showScreen('lobby')" style="margin-top:20px;">&#8592; BACK TO FARM</a>
     </div>
   </div>
@@ -387,6 +473,17 @@
     <div class="relief-sub" id="reliefTarget"></div>
     <div class="coin-earned" id="reliefCoins"></div>
   </div>
+
+  <!-- BURNED SCREEN -->
+  <div class="screen" id="screen-burned" style="justify-content:center;background:#4a0000;">
+    <div class="burn-fire">&#128293;</div>
+    <div class="burn-text">BURNED!</div>
+    <div class="burn-sub">The spud burnt yer hands!</div>
+    <div class="burn-coins" id="burnCoins"></div>
+  </div>
+
+  <!-- Toast (replaces alerts) -->
+  <div class="toast" id="toast"></div>
 
   <!-- BADGES SCREEN -->
   <div class="screen" id="screen-badges" style="background:#2d5a1e;">
@@ -415,8 +512,22 @@
       name: '', coins: 10, badges: [], hasPotato: false,
       potato: null, heat: 0, selectedTarget: null, heatInterval: null,
       onlinePlayers: [], // real players from server
+      farmers: [],       // rendered ring of targets (with positions + angles)
       myId: null,
+      pendingTossClaim: null, // tossId from ?toss=... URL param
     };
+
+    // --- Read URL params: share link auto-delivery ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const incomingTossId = urlParams.get('toss');
+    if (incomingTossId) {
+      state.pendingTossClaim = incomingTossId;
+      // Clean URL so a refresh doesn't try to re-claim an already-claimed toss
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // Track pending share action so we know what to do when server replies
+    let pendingShareAction = null; // 'text' | 'email' | 'link'
 
     // --- PIXEL ART ---
     const POTATO_NORMAL = [
@@ -469,6 +580,13 @@
       state.name = savedName;
       startBtn.classList.remove('disabled');
     }
+    // If arriving via share link, show an urgent message on the title screen
+    if (state.pendingTossClaim) {
+      const sub = document.getElementById('titleSubtitle');
+      sub.innerHTML = '\u{1F525} A HOT POTATO is flyin at ye! \u{1F525}<br>Enter yer name to catch it!';
+      sub.style.color = '#ffd700';
+      startBtn.textContent = 'CATCH IT!';
+    }
     nameInput.addEventListener('input', () => {
       state.name = nameInput.value.trim();
       startBtn.classList.toggle('disabled', !state.name);
@@ -479,7 +597,39 @@
       document.getElementById('welcomeText').textContent = 'Welcome, ' + state.name + '!';
       connectToServer();
       updateUI();
-      showScreen('lobby');
+      // If a potato is inbound via share link, skip the lobby — go straight to game
+      // and show a "catching..." state until the server confirms
+      if (state.pendingTossClaim) {
+        showCatchingState();
+      } else {
+        showScreen('lobby');
+      }
+    }
+    // Show a minimal "catching incoming potato" overlay while we wait for server
+    function showCatchingState() {
+      showScreen('game');
+      let overlay = document.getElementById('catchingOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'catchingOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:450;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#87ceeb;pointer-events:none;';
+        overlay.innerHTML =
+          '<div style="font-size:72px;animation:pulse 1s infinite;">\u{1F954}</div>' +
+          '<div style="font-size:24px;color:white;margin-top:20px;text-shadow:3px 3px 0 #5c3d2e;letter-spacing:3px;font-family:\'Press Start 2P\',monospace;">INCOMING!</div>' +
+          '<div style="font-size:10px;color:#2d5a1e;margin-top:14px;text-shadow:1px 1px 0 #fff;font-family:\'Press Start 2P\',monospace;">Catchin yer potato...</div>';
+        document.body.appendChild(overlay);
+        if (!document.getElementById('pulseKeyframes')) {
+          const s = document.createElement('style');
+          s.id = 'pulseKeyframes';
+          s.textContent = '@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.2); } }';
+          document.head.appendChild(s);
+        }
+      }
+      overlay.style.display = 'flex';
+    }
+    function hideCatchingState() {
+      const overlay = document.getElementById('catchingOverlay');
+      if (overlay) overlay.style.display = 'none';
     }
     // Auto-start if name was saved
     if (savedName) {
@@ -498,15 +648,60 @@
       socket.on('registered', ({ player }) => {
         syncPlayerState(player);
         document.getElementById('playerCount').textContent = '1 player online';
+        // Auto-claim any pending toss from share link
+        if (state.pendingTossClaim) {
+          const id = state.pendingTossClaim;
+          state.pendingTossClaim = null;
+          socket.emit('claim_toss', { tossId: id });
+        }
+      });
+
+      // Server replies with a share link we generated
+      socket.on('share_toss_created', ({ tossId, shareUrl, expiresAt }) => {
+        const fullUrl = window.location.origin + shareUrl;
+        const msg = state.name + " tossed ye a HOT POTATO! Toss it before it burns ye: " + fullUrl;
+        const action = pendingShareAction || 'link';
+        pendingShareAction = null;
+
+        if (action === 'email') {
+          const subject = 'HOT POTATO! Toss it quick!';
+          const body = state.name + " tossed ye a HOT POTATO!\n\nToss it to someone else before it burns ye:\n" + fullUrl;
+          window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+          addFeedItem('Sent a potato via email!');
+        } else if (action === 'text') {
+          window.location.href = 'sms:?&body=' + encodeURIComponent(msg);
+          addFeedItem('Sent a potato via text!');
+        } else {
+          // Default: use Web Share API if available, else copy to clipboard
+          if (navigator.share) {
+            navigator.share({
+              title: 'HOT POTATO!',
+              text: state.name + ' tossed ye a HOT POTATO! Toss it before it burns!',
+              url: fullUrl
+            }).then(() => addFeedItem('Shared a potato!')).catch(() => {});
+          } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(fullUrl).then(() => {
+              addFeedItem('Link copied! Paste into a message.');
+              showToast('Link copied! Paste into a message.', 'success');
+            }).catch(() => {
+              prompt('Share this link:', fullUrl);
+            });
+          } else {
+            prompt('Share this link:', fullUrl);
+          }
+        }
+      });
+
+      // Someone claimed a toss we sent
+      socket.on('toss_claimed', ({ claimedBy }) => {
+        addFeedItem(claimedBy + ' caught yer tossed potato!');
       });
 
       socket.on('player_list', ({ players }) => {
         state.onlinePlayers = players.filter(p => p.id !== state.myId);
         const onlineCount = players.filter(p => p.online).length;
         document.getElementById('playerCount').textContent = players.length + ' player' + (players.length !== 1 ? 's' : '') + ' (' + onlineCount + ' online)';
-        if (state.hasPotato) renderTargets();
-        // Also update lobby targets
-        renderTargets();
+        if (state.hasPotato) layoutFarmers();
       });
 
       // Someone tossed YOU a potato
@@ -515,6 +710,7 @@
         state.potato = potato;
         state.hasPotato = true;
         state.heat = 0;
+        hideCatchingState();
         showScreen('game');
         renderGameState();
         // Animate drop-in
@@ -564,13 +760,16 @@
         document.querySelectorAll('.sweat').forEach(s => s.classList.remove('visible'));
         updateUI();
         if (badges) badges.forEach(b => showBadgePopup(b));
-        alert('BURNED! The potato burned ye! -' + coinsLost + ' coins');
-        showScreen('game');
-        renderGameState();
+        showBurnedScreen(coinsLost);
       });
 
       socket.on('error', ({ message }) => {
-        alert(message);
+        hideCatchingState();
+        showToast(message, 'error');
+        // If we were waiting for an incoming toss that failed, drop to the lobby
+        if (document.getElementById('screen-game').classList.contains('active') && !state.hasPotato) {
+          showScreen('lobby');
+        }
       });
 
       // Live activity feed from other players
@@ -606,6 +805,40 @@
     function updateUI() {
       document.getElementById('coinCount').textContent = state.coins;
       document.getElementById('badgeCount').textContent = state.badges.length;
+    }
+
+    // --- TOAST (replaces alert()) ---
+    let toastTimer = null;
+    function showToast(message, kind, duration) {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = message;
+      t.className = 'toast visible' + (kind ? ' ' + kind : '');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('visible'), duration || 2800);
+    }
+
+    // --- BURNED screen (replaces alert() on burn) ---
+    function showBurnedScreen(coinsLost) {
+      document.getElementById('burnCoins').innerHTML =
+        '<span class="coin-icon">P</span> -' + coinsLost + ' coins';
+      showScreen('burned');
+      setTimeout(() => {
+        // Return to game screen so the player can keep going
+        showScreen('game');
+        renderGameState();
+      }, 2500);
+    }
+
+    // --- SHARE A POTATO via link/text/email ---
+    function shareToss(method) {
+      if (!socket || !socket.connected) {
+        showToast('Not connected to the farm yet!', 'error');
+        return;
+      }
+      pendingShareAction = method;
+      // Create a pending share toss on the server (recipient gets a fresh potato)
+      socket.emit('create_share_toss', { potatoType: 'GOLDEN' });
     }
 
     // --- RECEIVE POTATO (local demo fallback if no server) ---
@@ -664,7 +897,6 @@
       const label = document.getElementById('heatLabel');
       const glow = document.getElementById('edgeGlow');
       const container = document.getElementById('potatoContainer');
-      const tossBtn = document.getElementById('tossBtn');
       const hint = document.getElementById('tossHint');
       const h = state.heat;
       fill.style.width = (h * 100) + '%';
@@ -678,8 +910,7 @@
         label.style.color = '#ff4444';
         glow.className = 'edge-glow active';
         container.className = 'potato-container potato-shake';
-        tossBtn.className = 'toss-area pixel-btn red';
-        hint.textContent = '+10 DANGER BONUS!';
+        if (hint) hint.textContent = '+10 DANGER BONUS!';
         drawPotato('gamePotato', true);
       } else if (h > 0.5) {
         fill.style.backgroundColor = '#ff8c42';
@@ -687,8 +918,7 @@
         label.style.color = 'white';
         glow.className = 'edge-glow hot';
         container.className = 'potato-container potato-wobble';
-        tossBtn.className = 'toss-area pixel-btn orange';
-        hint.textContent = '+5 hot toss bonus';
+        if (hint) hint.textContent = '+5 hot toss bonus';
         drawPotato('gamePotato', true);
       } else {
         fill.style.backgroundColor = '#ffd700';
@@ -696,8 +926,7 @@
         label.style.color = 'white';
         glow.className = 'edge-glow';
         container.className = 'potato-container';
-        tossBtn.className = 'toss-area pixel-btn';
-        hint.textContent = '+2 coins';
+        if (hint) hint.textContent = '+2 coins';
         drawPotato('gamePotato', false);
       }
 
@@ -758,9 +987,7 @@
       document.querySelectorAll('.sweat').forEach(s => s.classList.remove('visible'));
       updateUI();
       awardBadge('BURNED');
-      alert('BURNED! The potato burned ye! -3 coins');
-      showScreen('game');
-      renderGameState();
+      showBurnedScreen(3);
     }
 
     // --- RENDER GAME STATE ---
@@ -771,40 +998,106 @@
         has.style.display = 'flex';
         no.style.display = 'none';
         drawPotato('gamePotato', state.heat > 0.5);
-        renderTargets();
+        // Reset any leftover animation transforms so farmer-ring measurements are clean
+        const pc = document.getElementById('potatoContainer');
+        pc.classList.remove('potato-receiving', 'potato-tossing', 'potato-dragging');
+        pc.style.transform = '';
+        // Force layout before measuring so farmer ring uses the *final* potato position
+        void has.offsetHeight;
+        layoutFarmers();
       } else {
         has.style.display = 'none';
         no.style.display = 'flex';
         drawPotato('emptyPotato', false);
+        // Clear farmer field when no potato
+        const field = document.getElementById('farmerField');
+        if (field) field.innerHTML = '';
+        state.farmers = [];
       }
     }
 
-    function renderTargets() {
-      const scroll = document.getElementById('targetScroll');
-      const players = state.onlinePlayers;
+    // --- FARMER RING: position targets around the potato, picked by drag direction ---
+    // Each rendered farmer gets an angle (theta, clockwise from "up") stored in state.farmers.
+    // During drag, the nearest farmer to the drag angle is highlighted and becomes the target.
+    function layoutFarmers() {
+      const field = document.getElementById('farmerField');
+      if (!field) return;
+      field.innerHTML = '';
+      state.farmers = [];
+
+      // Only show the ring when we have a potato
+      if (!state.hasPotato) return;
+
+      const players = state.onlinePlayers || [];
       if (players.length === 0) {
-        scroll.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,0.6);padding:10px;text-align:center;">No other players yet.<br>Share the link to invite friends!</div>';
+        // Show a helpful message in the middle of the ring
+        const empty = document.createElement('div');
+        empty.style.cssText = 'position:absolute;left:50%;top:22%;transform:translateX(-50%);font-size:10px;color:rgba(255,255,255,0.7);text-align:center;max-width:260px;line-height:1.6;';
+        empty.innerHTML = 'No other farmers yet!<br>Share the link to invite friends.';
+        field.appendChild(empty);
         return;
       }
-      // Auto-select first player if none selected
-      if (!state.selectedTarget || !players.find(p => p.id === state.selectedTarget.id)) {
-        state.selectedTarget = players[0];
+
+      // Position farmers in an arc around the potato
+      const potato = document.getElementById('potatoContainer');
+      const rect = potato.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const n = Math.min(players.length, 9);
+      const radius = Math.min(Math.max(Math.min(window.innerWidth, window.innerHeight) * 0.36, 140), 240);
+
+      // Arc span: up to 260° (leaves a gap at the bottom where the user's hand is)
+      // Fewer farmers → tighter arc for cleaner look
+      const arcSpan = Math.min(Math.PI * 260 / 180, (n - 1) * Math.PI / 4 + Math.PI / 2);
+
+      for (let i = 0; i < n; i++) {
+        const farmer = players[i];
+        const t = n === 1 ? 0 : (i / (n - 1)) - 0.5;
+        const theta = t * arcSpan; // 0 = straight up, negative = left, positive = right
+        // Screen coords: sin(theta) = x offset, -cos(theta) = y offset (up is -y)
+        let x = cx + Math.sin(theta) * radius;
+        let y = cy - Math.cos(theta) * radius;
+        // Clamp to viewport with a margin
+        x = Math.max(55, Math.min(window.innerWidth - 55, x));
+        y = Math.max(60, Math.min(window.innerHeight - 60, y));
+
+        const orb = document.createElement('div');
+        orb.className = 'farmer-orb' + (farmer.isNpc ? ' npc' : '') + (!farmer.online ? ' offline' : '');
+        orb.dataset.idx = i;
+        orb.style.left = x + 'px';
+        orb.style.top = y + 'px';
+        const emoji = farmer.isNpc ? '\u{1F33E}' : (farmer.online ? '\u{1F468}\u200D\u{1F33E}' : '\u{1F634}');
+        const status = farmer.isNpc ? 'NPC' : (farmer.online ? 'online' : 'offline');
+        orb.innerHTML =
+          '<div class="farmer-emoji">' + emoji + '</div>' +
+          '<div class="farmer-name">' + escapeHtml(farmer.name) + '</div>' +
+          '<div class="farmer-status">' + status + '</div>';
+        field.appendChild(orb);
+
+        state.farmers.push({ player: farmer, theta, x, y, orb });
       }
-      scroll.innerHTML = players.map(c => {
-        const sel = state.selectedTarget && state.selectedTarget.id === c.id ? ' selected' : '';
-        const npcStyle = c.isNpc ? ' style="border-color:#9b59b6;background:rgba(155,89,182,0.2);"' : '';
-        const statusDot = c.isNpc ? '&#129332;' : c.online ? '&#128994;' : '&#9898;';
-        const statusText = c.isNpc ? c.vibe : (c.hasPotato ? 'holding potato' : 'free hands');
-        return '<div class="target-card' + sel + '"' + npcStyle + ' onclick="selectTarget(\'' + c.id + '\')">' +
-          '<div class="target-name">' + c.name + '</div>' +
-          '<div class="target-stat">' + statusDot + ' ' + statusText + '</div></div>';
-      }).join('');
     }
 
-    function selectTarget(id) {
-      state.selectedTarget = state.onlinePlayers.find(c => c.id === id);
-      renderTargets();
+    function escapeHtml(s) {
+      return String(s).replace(/[<>&"']/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
     }
+
+    // Pick the farmer whose angle is nearest to the drag angle.
+    // dragTheta: radians, 0 = up, positive = right (screen clockwise from up)
+    function findNearestFarmer(dragTheta) {
+      if (!state.farmers || state.farmers.length === 0) return null;
+      let best = null;
+      let bestDiff = Infinity;
+      for (const f of state.farmers) {
+        let diff = Math.abs(f.theta - dragTheta);
+        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+        if (diff < bestDiff) { bestDiff = diff; best = f; }
+      }
+      return { farmer: best, angleDiff: bestDiff };
+    }
+
+    // Relayout on resize (mobile rotation, browser zoom)
+    window.addEventListener('resize', () => { if (state.hasPotato) layoutFarmers(); });
 
     // --- BADGES ---
     function awardBadge(id) {
@@ -921,10 +1214,13 @@
       document.head.appendChild(style);
     }
 
-    // --- SWIPE / DRAG GESTURE ---
-    let dragState = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, startTime: 0 };
+    // --- DRAG-AIM GESTURE ---
+    // Drag the potato in any direction. The farmer whose angle is closest to the
+    // drag direction gets targeted (highlighted). On release, if the drag distance
+    // exceeds MIN_STRENGTH, toss to that farmer. Otherwise cancel.
+    let dragState = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, startTime: 0, target: null };
     const trailContainer = document.getElementById('trailContainer');
-    const SWIPE_THRESHOLD = 60; // pixels to trigger toss
+    const MIN_STRENGTH = 50; // pixels of drag needed to commit a toss
 
     function getPointerPos(e) {
       if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -935,18 +1231,48 @@
       return { x: e.clientX, y: e.clientY };
     }
 
+    // Only start drag if the game screen is the active one and the user has a potato.
+    function gameScreenActive() {
+      return document.getElementById('screen-game').classList.contains('active');
+    }
+
     function onDragStart(e) {
-      if (!state.hasPotato) return;
+      if (!state.hasPotato || !gameScreenActive()) return;
       const pos = getPointerPos(e);
-      // Only start drag if touching near the potato
+      // Start drag if touching near the potato (bigger hit area)
       const container = document.getElementById('potatoContainer');
       const rect = container.getBoundingClientRect();
-      const expanded = { top: rect.top - 40, bottom: rect.bottom + 80, left: rect.left - 40, right: rect.right + 40 };
-      if (pos.x < expanded.left || pos.x > expanded.right || pos.y < expanded.top || pos.y > expanded.bottom) return;
+      const pad = 60;
+      if (pos.x < rect.left - pad || pos.x > rect.right + pad ||
+          pos.y < rect.top - pad || pos.y > rect.bottom + pad) return;
 
-      dragState = { active: true, startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y, startTime: Date.now() };
+      dragState = { active: true, startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y, startTime: Date.now(), target: null };
       container.classList.add('potato-dragging');
       e.preventDefault();
+    }
+
+    function clearTargetHighlight() {
+      document.querySelectorAll('.farmer-orb.targeted').forEach(el => el.classList.remove('targeted'));
+    }
+
+    function updateAimLine(fromX, fromY, toX, toY, strong) {
+      const line = document.getElementById('aimLine');
+      if (!line) return;
+      const dx = toX - fromX;
+      const dy = toY - fromY;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+      line.style.left = fromX + 'px';
+      line.style.top = fromY + 'px';
+      line.style.height = len + 'px';
+      line.style.transform = 'rotate(' + (angleDeg - 90) + 'deg)';
+      line.classList.add('visible');
+      line.classList.toggle('weak', !strong);
+    }
+
+    function hideAimLine() {
+      const line = document.getElementById('aimLine');
+      if (line) line.classList.remove('visible', 'weak');
     }
 
     function onDragMove(e) {
@@ -957,13 +1283,32 @@
 
       const dx = pos.x - dragState.startX;
       const dy = pos.y - dragState.startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
       const container = document.getElementById('potatoContainer');
+      container.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) rotate(' + (dx * 0.3) + 'deg) scale(' + Math.max(0.8, 1 - dist / 900) + ')';
 
-      // Move potato with finger
-      container.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) rotate(' + (dx * 0.3) + 'deg) scale(' + Math.max(0.8, 1 - Math.abs(dy) / 800) + ')';
+      // Drag angle, measured clockwise from "up": 0 = up, π/2 = right, -π/2 = left
+      const dragTheta = Math.atan2(dx, -dy);
 
-      // Spawn trail particles while dragging upward
-      if (dy < -20) {
+      // Find + highlight the nearest farmer
+      const pick = findNearestFarmer(dragTheta);
+      clearTargetHighlight();
+      if (pick && pick.farmer) {
+        pick.farmer.orb.classList.add('targeted');
+        dragState.target = pick.farmer.player;
+      } else {
+        dragState.target = null;
+      }
+
+      // Aim line: from potato center to finger
+      const rect = document.getElementById('potatoContainer').getBoundingClientRect();
+      const px = rect.left + rect.width / 2 - dx;
+      const py = rect.top + rect.height / 2 - dy;
+      updateAimLine(px, py, pos.x, pos.y, dist >= MIN_STRENGTH);
+
+      // Spawn trail particles in drag direction
+      if (dist > 20 && Math.random() < 0.6) {
         spawnTrailParticle(pos.x, pos.y, state.heat);
       }
       e.preventDefault();
@@ -973,26 +1318,31 @@
       if (!dragState.active) return;
       dragState.active = false;
       const pos = getPointerEndPos(e);
-      const dy = dragState.startY - pos.y;
-      const dt = Date.now() - dragState.startTime;
-      const velocity = dy / Math.max(dt, 1) * 1000; // pixels per second
+      const dx = pos.x - dragState.startX;
+      const dy = pos.y - dragState.startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
       const container = document.getElementById('potatoContainer');
       container.classList.remove('potato-dragging');
       container.style.transform = '';
+      clearTargetHighlight();
+      hideAimLine();
 
-      // Toss if swiped up enough (distance OR velocity)
-      if ((dy > SWIPE_THRESHOLD || velocity > 400) && state.hasPotato) {
+      // Valid toss: drag strong enough AND a target was picked
+      if (dist >= MIN_STRENGTH && dragState.target && state.hasPotato) {
         // Burst of trail particles at release point
         for (let i = 0; i < 8; i++) {
           setTimeout(() => spawnTrailParticle(
             pos.x + (Math.random() - 0.5) * 40,
-            pos.y + Math.random() * 30,
+            pos.y + (Math.random() - 0.5) * 40,
             state.heat
           ), i * 30);
         }
+        // Commit the toss to the picked farmer
+        state.selectedTarget = dragState.target;
         tossPotato();
       }
+      dragState.target = null;
     }
 
     function spawnTrailParticle(x, y, heat) {
