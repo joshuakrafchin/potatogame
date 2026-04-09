@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const { GameManager } = require('./game');
 
@@ -15,7 +16,7 @@ const gameManager = new GameManager();
 // Serve static landing page
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.2.0' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.3.0' }));
 
 // Admin: reset all player data
 app.post('/admin/reset', (req, res) => {
@@ -27,9 +28,19 @@ app.post('/admin/reset', (req, res) => {
   res.json({ status: 'cleared' });
 });
 
-// Catch potato landing page (viral entry point)
+// Catch potato landing page (viral entry point) — injects dynamic OG tags
+const catchHtmlTemplate = fs.readFileSync(path.join(__dirname, 'public', 'catch.html'), 'utf8');
 app.get('/catch/:tossId', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'catch.html'));
+  const pending = gameManager.pendingTosses.get(req.params.tossId);
+  const fromName = (pending && pending.fromPlayerName) || 'A friend';
+  const safeName = String(fromName).replace(/[<>&"']/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+  const title = safeName + ' tossed ye a HOT POTATO! 🥔🔥';
+  const desc = 'Toss it to someone else before it burns ye! An Irish farm adventure.';
+  let html = catchHtmlTemplate
+    .replace(/__OG_TITLE__/g, title)
+    .replace(/__OG_DESC__/g, desc)
+    .replace(/__FROM_NAME__/g, safeName);
+  res.send(html);
 });
 
 // API: Check pending toss status

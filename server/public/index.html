@@ -318,7 +318,7 @@
     <div class="title-text">HOT</div>
     <canvas id="titlePotato" width="100" height="100" class="potato-canvas" style="margin:16px 0;"></canvas>
     <div class="title-text">POTATO</div>
-    <div class="subtitle">An Irish Farm Adventure</div>
+    <div class="subtitle" id="titleSubtitle">An Irish Farm Adventure</div>
     <input class="name-input" id="nameInput" placeholder="Enter yer name, lad..." maxlength="16" style="margin-top:36px;">
     <a class="pixel-btn disabled" id="startBtn" onclick="startGame()" style="margin-top:20px;">START GAME</a>
   </div>
@@ -329,24 +329,25 @@
     <div class="section-title" id="welcomeText">Welcome!</div>
     <div class="body-text">Yer farm is peaceful... for now.</div>
     <div class="body-text" id="playerCount" style="margin-top:8px;color:#ffd700;">Connecting...</div>
-    <!-- Unearth button with type selector -->
-    <div class="section-title" style="margin-top:16px;">Unearth a Potato</div>
-    <div class="shop-row" id="shopRow"></div>
+
+    <!-- Primary action: toss a potato to a friend via share link -->
+    <div class="section-title" style="margin-top:22px;">Toss a Potato</div>
+    <div class="body-text" style="max-width:340px;text-align:center;">Send someone a hot potato. They tap the link and the spud flies at them!</div>
+    <div class="share-row">
+      <div class="share-btn" onclick="shareToss('text')"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
+      <div class="share-btn" onclick="shareToss('email')"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
+      <div class="share-btn" onclick="shareToss('link')"><div class="share-icon">&#128279;</div><div class="share-label">Link</div></div>
+    </div>
 
     <!-- Activity feed -->
-    <div class="section-title" style="margin-top:20px;">Farm Activity</div>
+    <div class="section-title" style="margin-top:22px;">Farm Activity</div>
     <div class="activity-feed" id="activityFeed">
       <div class="feed-item" style="color:rgba(255,255,255,0.4);">Waiting for farmers...</div>
     </div>
 
-    <!-- Share -->
-    <div class="section-title" style="margin-top:16px;">Invite Friends</div>
-    <div class="share-row">
-      <div class="share-btn"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
-      <div class="share-btn"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
-      <div class="share-btn"><div class="share-icon">&#128241;</div><div class="share-label">Bump</div></div>
-      <div class="share-btn"><div class="share-icon">&#128279;</div><div class="share-label">Link</div></div>
-    </div>
+    <!-- Secondary: dig one up for yerself -->
+    <div class="section-title" style="margin-top:22px;">Or Unearth One Yerself</div>
+    <div class="shop-row" id="shopRow"></div>
   </div>
 
   <!-- GAME SCREEN -->
@@ -375,7 +376,12 @@
     <div id="noPotato" style="display:none;flex-direction:column;align-items:center;">
       <canvas id="emptyPotato" width="80" height="80" class="potato-canvas"></canvas>
       <div style="font-size:16px;color:white;margin-top:20px;text-shadow:2px 2px 0 #1a1a2e;">No potato right now.</div>
-      <div class="body-text">Enjoy the peace while it lasts...</div>
+      <div class="body-text">Toss one to a friend to get the farm goin'!</div>
+      <div class="share-row" style="margin-top:16px;">
+        <div class="share-btn" onclick="shareToss('text')"><div class="share-icon">&#128172;</div><div class="share-label">Text</div></div>
+        <div class="share-btn" onclick="shareToss('email')"><div class="share-icon">&#128231;</div><div class="share-label">Email</div></div>
+        <div class="share-btn" onclick="shareToss('link')"><div class="share-icon">&#128279;</div><div class="share-label">Link</div></div>
+      </div>
       <a class="pixel-btn" onclick="showScreen('lobby')" style="margin-top:20px;">&#8592; BACK TO FARM</a>
     </div>
   </div>
@@ -416,7 +422,20 @@
       potato: null, heat: 0, selectedTarget: null, heatInterval: null,
       onlinePlayers: [], // real players from server
       myId: null,
+      pendingTossClaim: null, // tossId from ?toss=... URL param
     };
+
+    // --- Read URL params: share link auto-delivery ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const incomingTossId = urlParams.get('toss');
+    if (incomingTossId) {
+      state.pendingTossClaim = incomingTossId;
+      // Clean URL so a refresh doesn't try to re-claim an already-claimed toss
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // Track pending share action so we know what to do when server replies
+    let pendingShareAction = null; // 'text' | 'email' | 'link'
 
     // --- PIXEL ART ---
     const POTATO_NORMAL = [
@@ -469,6 +488,13 @@
       state.name = savedName;
       startBtn.classList.remove('disabled');
     }
+    // If arriving via share link, show an urgent message on the title screen
+    if (state.pendingTossClaim) {
+      const sub = document.getElementById('titleSubtitle');
+      sub.innerHTML = '\u{1F525} A HOT POTATO is flyin at ye! \u{1F525}<br>Enter yer name to catch it!';
+      sub.style.color = '#ffd700';
+      startBtn.textContent = 'CATCH IT!';
+    }
     nameInput.addEventListener('input', () => {
       state.name = nameInput.value.trim();
       startBtn.classList.toggle('disabled', !state.name);
@@ -479,7 +505,39 @@
       document.getElementById('welcomeText').textContent = 'Welcome, ' + state.name + '!';
       connectToServer();
       updateUI();
-      showScreen('lobby');
+      // If a potato is inbound via share link, skip the lobby — go straight to game
+      // and show a "catching..." state until the server confirms
+      if (state.pendingTossClaim) {
+        showCatchingState();
+      } else {
+        showScreen('lobby');
+      }
+    }
+    // Show a minimal "catching incoming potato" overlay while we wait for server
+    function showCatchingState() {
+      showScreen('game');
+      let overlay = document.getElementById('catchingOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'catchingOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:450;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#87ceeb;pointer-events:none;';
+        overlay.innerHTML =
+          '<div style="font-size:72px;animation:pulse 1s infinite;">\u{1F954}</div>' +
+          '<div style="font-size:24px;color:white;margin-top:20px;text-shadow:3px 3px 0 #5c3d2e;letter-spacing:3px;font-family:\'Press Start 2P\',monospace;">INCOMING!</div>' +
+          '<div style="font-size:10px;color:#2d5a1e;margin-top:14px;text-shadow:1px 1px 0 #fff;font-family:\'Press Start 2P\',monospace;">Catchin yer potato...</div>';
+        document.body.appendChild(overlay);
+        if (!document.getElementById('pulseKeyframes')) {
+          const s = document.createElement('style');
+          s.id = 'pulseKeyframes';
+          s.textContent = '@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.2); } }';
+          document.head.appendChild(s);
+        }
+      }
+      overlay.style.display = 'flex';
+    }
+    function hideCatchingState() {
+      const overlay = document.getElementById('catchingOverlay');
+      if (overlay) overlay.style.display = 'none';
     }
     // Auto-start if name was saved
     if (savedName) {
@@ -498,6 +556,53 @@
       socket.on('registered', ({ player }) => {
         syncPlayerState(player);
         document.getElementById('playerCount').textContent = '1 player online';
+        // Auto-claim any pending toss from share link
+        if (state.pendingTossClaim) {
+          const id = state.pendingTossClaim;
+          state.pendingTossClaim = null;
+          socket.emit('claim_toss', { tossId: id });
+        }
+      });
+
+      // Server replies with a share link we generated
+      socket.on('share_toss_created', ({ tossId, shareUrl, expiresAt }) => {
+        const fullUrl = window.location.origin + shareUrl;
+        const msg = state.name + " tossed ye a HOT POTATO! Toss it before it burns ye: " + fullUrl;
+        const action = pendingShareAction || 'link';
+        pendingShareAction = null;
+
+        if (action === 'email') {
+          const subject = 'HOT POTATO! Toss it quick!';
+          const body = state.name + " tossed ye a HOT POTATO!\n\nToss it to someone else before it burns ye:\n" + fullUrl;
+          window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+          addFeedItem('Sent a potato via email!');
+        } else if (action === 'text') {
+          window.location.href = 'sms:?&body=' + encodeURIComponent(msg);
+          addFeedItem('Sent a potato via text!');
+        } else {
+          // Default: use Web Share API if available, else copy to clipboard
+          if (navigator.share) {
+            navigator.share({
+              title: 'HOT POTATO!',
+              text: state.name + ' tossed ye a HOT POTATO! Toss it before it burns!',
+              url: fullUrl
+            }).then(() => addFeedItem('Shared a potato!')).catch(() => {});
+          } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(fullUrl).then(() => {
+              addFeedItem('Link copied! Paste into a message.');
+              alert('Link copied to clipboard!\n\n' + fullUrl);
+            }).catch(() => {
+              prompt('Share this link:', fullUrl);
+            });
+          } else {
+            prompt('Share this link:', fullUrl);
+          }
+        }
+      });
+
+      // Someone claimed a toss we sent
+      socket.on('toss_claimed', ({ claimedBy }) => {
+        addFeedItem(claimedBy + ' caught yer tossed potato!');
       });
 
       socket.on('player_list', ({ players }) => {
@@ -515,6 +620,7 @@
         state.potato = potato;
         state.hasPotato = true;
         state.heat = 0;
+        hideCatchingState();
         showScreen('game');
         renderGameState();
         // Animate drop-in
@@ -570,7 +676,12 @@
       });
 
       socket.on('error', ({ message }) => {
+        hideCatchingState();
         alert(message);
+        // If we were waiting for an incoming toss that failed, drop to the lobby
+        if (document.getElementById('screen-game').classList.contains('active') && !state.hasPotato) {
+          showScreen('lobby');
+        }
       });
 
       // Live activity feed from other players
@@ -606,6 +717,17 @@
     function updateUI() {
       document.getElementById('coinCount').textContent = state.coins;
       document.getElementById('badgeCount').textContent = state.badges.length;
+    }
+
+    // --- SHARE A POTATO via link/text/email ---
+    function shareToss(method) {
+      if (!socket || !socket.connected) {
+        alert('Not connected to the farm yet!');
+        return;
+      }
+      pendingShareAction = method;
+      // Create a pending share toss on the server (recipient gets a fresh potato)
+      socket.emit('create_share_toss', { potatoType: 'GOLDEN' });
     }
 
     // --- RECEIVE POTATO (local demo fallback if no server) ---

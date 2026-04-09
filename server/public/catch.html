@@ -3,240 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>HOT POTATO - Catch it!</title>
-  <meta property="og:title" content="Someone tossed you a Hot Potato!">
-  <meta property="og:description" content="Catch it before it burns! A fun Irish potato farm game.">
+  <title>__OG_TITLE__</title>
+
+  <!-- Open Graph preview card -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="__OG_TITLE__">
+  <meta property="og:description" content="__OG_DESC__">
+  <meta property="og:image" content="/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+
+  <!-- Twitter card -->
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="__OG_TITLE__">
+  <meta name="twitter:description" content="__OG_DESC__">
+  <meta name="twitter:image" content="/icon-512.png">
+
+  <meta name="theme-color" content="#4a8c3f">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
+    html, body {
       font-family: 'Press Start 2P', monospace;
       background: #87ceeb;
       min-height: 100vh;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      color: #5c3d2e;
     }
-
-    /* Irish hills background */
-    .hills {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 40vh;
-      z-index: 0;
+    .wrap {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 20px;
     }
-    .hill {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      border-radius: 50% 50% 0 0;
-    }
+    .hills { position: fixed; bottom: 0; left: 0; right: 0; height: 40vh; }
+    .hill { position: absolute; bottom: 0; width: 100%; border-radius: 50% 50% 0 0; }
     .hill-1 { height: 35vh; background: #7bc96f; }
     .hill-2 { height: 28vh; background: #4a8c3f; left: -10%; width: 60%; }
     .hill-3 { height: 25vh; background: #4a8c3f; right: -10%; width: 60%; }
     .hill-4 { height: 18vh; background: #2d5a1e; }
-
-    /* Clouds */
-    .cloud {
-      position: fixed;
-      background: white;
-      border-radius: 4px;
-      animation: float 8s ease-in-out infinite;
+    .title {
+      font-size: 20px; color: white; text-shadow: 3px 3px 0 #5c3d2e;
+      letter-spacing: 3px; margin-top: 24px;
     }
-    .cloud::before, .cloud::after {
-      content: '';
-      position: absolute;
-      background: white;
-      border-radius: 4px;
+    .sub {
+      font-size: 10px; color: #2d5a1e; text-shadow: 1px 1px 0 #fff;
+      margin-top: 14px; line-height: 1.6;
     }
-    .cloud-1 { top: 10%; left: 10%; width: 60px; height: 20px; animation-delay: 0s; }
-    .cloud-1::before { width: 30px; height: 30px; top: -15px; left: 10px; }
-    .cloud-1::after { width: 20px; height: 20px; top: -8px; left: 35px; }
-    .cloud-2 { top: 15%; right: 15%; width: 45px; height: 15px; animation-delay: -3s; }
-    .cloud-2::before { width: 25px; height: 20px; top: -12px; left: 8px; }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
+    .from { color: #c9a84c; font-size: 12px; }
+    canvas { image-rendering: pixelated; }
+    @keyframes fall {
+      0% { transform: translateY(-120vh) scale(0.3) rotate(-360deg); }
+      70% { transform: translateY(10px) scale(1.1) rotate(0deg); }
+      85% { transform: translateY(-8px) scale(0.95); }
+      100% { transform: translateY(0) scale(1) rotate(0deg); }
     }
-
-    /* Main content */
-    .content {
-      position: relative;
-      z-index: 10;
-      text-align: center;
-      padding: 20px;
-      max-width: 400px;
-    }
-
-    .from-text {
-      font-size: 10px;
-      color: #2d5a1e;
-      text-shadow: 1px 1px 0 #fff;
-      margin-bottom: 10px;
-    }
-    .from-name {
-      color: #c9a84c;
-      font-size: 14px;
-    }
-
-    /* Pixel potato */
-    .potato-container {
-      position: relative;
-      margin: 20px auto;
-      width: 160px;
-      height: 160px;
-    }
-    .potato-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 20px);
-      grid-template-rows: repeat(8, 20px);
-      image-rendering: pixelated;
-    }
-    .px { width: 20px; height: 20px; }
-
-    /* Bounce animation */
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      30% { transform: translateY(-15px); }
-      50% { transform: translateY(0); }
-      70% { transform: translateY(-8px); }
-    }
-    .potato-container {
-      animation: bounce 1.5s ease-in-out infinite;
-    }
-
-    /* Heat glow */
-    @keyframes glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(255,140,0,0.3); }
-      50% { box-shadow: 0 0 40px rgba(255,68,68,0.6); }
-    }
-    .potato-container.hot {
-      animation: bounce 0.8s ease-in-out infinite;
-    }
-    .potato-container.hot .potato-grid {
-      animation: glow 1s ease-in-out infinite;
-    }
-
-    /* Steam particles */
-    .steam {
-      position: absolute;
-      width: 8px;
-      height: 8px;
-      background: rgba(255,255,255,0.6);
-      border-radius: 2px;
-      animation: rise 2s ease-out infinite;
-    }
-    .steam-1 { left: 30%; top: -10px; animation-delay: 0s; }
-    .steam-2 { left: 50%; top: -5px; animation-delay: 0.5s; }
-    .steam-3 { left: 70%; top: -10px; animation-delay: 1s; }
-
-    @keyframes rise {
-      0% { transform: translateY(0) scale(1); opacity: 0.6; }
-      100% { transform: translateY(-40px) scale(0.3); opacity: 0; }
-    }
-
-    /* Timer */
-    .timer {
-      font-size: 32px;
-      color: #ff4444;
-      text-shadow: 2px 2px 0 #5c3d2e;
-      margin: 15px 0;
-      transition: color 0.5s;
-    }
-    .timer.danger {
-      color: #cc0000;
-      animation: flash 0.5s ease-in-out infinite;
-    }
-    @keyframes flash {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .timer-label {
-      font-size: 8px;
-      color: #5c3d2e;
-      text-shadow: 1px 1px 0 #fff;
-      letter-spacing: 3px;
-    }
-
-    /* CTA button */
-    .catch-btn {
-      display: inline-block;
-      background: #4a8c3f;
-      color: white;
-      border: 4px solid #2d5a1e;
-      border-bottom-width: 6px;
-      padding: 16px 40px;
-      font-family: 'Press Start 2P', monospace;
-      font-size: 14px;
-      cursor: pointer;
-      text-decoration: none;
-      margin-top: 20px;
-      transition: transform 0.1s;
-      letter-spacing: 2px;
-    }
-    .catch-btn:hover { transform: translateY(-2px); }
-    .catch-btn:active {
-      transform: translateY(2px);
-      border-bottom-width: 2px;
-    }
-
-    /* Burned state */
-    .burned .potato-container {
-      animation: none;
-      opacity: 0.5;
-      filter: grayscale(1);
-    }
-    .burned .timer { color: #666; }
-    .burned .catch-btn {
-      background: #666;
-      border-color: #444;
-    }
-
-    /* Shamrocks */
-    .shamrock {
-      position: fixed;
-      font-size: 20px;
-      z-index: 1;
-    }
-    .shamrock-1 { bottom: 15vh; left: 15%; }
-    .shamrock-2 { bottom: 22vh; right: 20%; font-size: 14px; }
-    .shamrock-3 { bottom: 10vh; left: 45%; font-size: 24px; }
-
-    /* Loading */
-    .loading {
-      font-size: 10px;
-      color: #2d5a1e;
-    }
-
-    /* Screen edge burn */
-    .edge-burn {
-      position: fixed;
-      z-index: 100;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 1s;
-    }
-    .edge-top { top: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to bottom, rgba(255,68,0,0.5), transparent); }
-    .edge-bottom { bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, rgba(255,68,0,0.5), transparent); }
-    .edge-left { top: 0; bottom: 0; left: 0; width: 20px; background: linear-gradient(to right, rgba(255,68,0,0.4), transparent); }
-    .edge-right { top: 0; bottom: 0; right: 0; width: 20px; background: linear-gradient(to left, rgba(255,68,0,0.4), transparent); }
+    .potato-drop { animation: fall 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
   </style>
 </head>
 <body>
-  <!-- Clouds -->
-  <div class="cloud cloud-1"></div>
-  <div class="cloud cloud-2"></div>
-
-  <!-- Hills -->
   <div class="hills">
     <div class="hill hill-1"></div>
     <div class="hill hill-2"></div>
@@ -244,138 +71,38 @@
     <div class="hill hill-4"></div>
   </div>
 
-  <!-- Shamrocks -->
-  <span class="shamrock shamrock-1">☘</span>
-  <span class="shamrock shamrock-2">☘</span>
-  <span class="shamrock shamrock-3">☘</span>
-
-  <!-- Screen edge burn -->
-  <div class="edge-burn edge-top" id="edgeTop"></div>
-  <div class="edge-burn edge-bottom" id="edgeBottom"></div>
-  <div class="edge-burn edge-left" id="edgeLeft"></div>
-  <div class="edge-burn edge-right" id="edgeRight"></div>
-
-  <div class="content" id="content">
-    <p class="loading" id="loading">Loading...</p>
+  <div class="wrap">
+    <canvas id="spud" width="120" height="120" class="potato-drop"></canvas>
+    <div class="title">INCOMING!</div>
+    <div class="sub">
+      <span class="from">__FROM_NAME__</span> tossed ye a hot potato!<br>
+      Opening the farm...
+    </div>
   </div>
 
   <script>
-    // Pixel art potato (8x8 grid) — hot version
-    const HOT_PIXELS = [
-      0,0xcc0000,0x5c3d2e,0x5c3d2e,0x5c3d2e,0xcc0000,0,0,
-      0xff8c42,0x5c3d2e,0xff8c42,0xff8c42,0xff8c42,0x5c3d2e,0xff8c42,0,
-      0x5c3d2e,0xff8c42,0xffd700,0xffd700,0xff8c42,0xff8c42,0x5c3d2e,0,
-      0x5c3d2e,0xff8c42,0xffd700,0xffd700,0xffd700,0xff8c42,0x5c3d2e,0,
-      0x5c3d2e,0xff8c42,0xff8c42,0xffd700,0xffd700,0xff8c42,0x5c3d2e,0,
-      0,0x5c3d2e,0xff8c42,0xff8c42,0xff8c42,0xff8c42,0x5c3d2e,0,
-      0xff4444,0,0x5c3d2e,0x5c3d2e,0x5c3d2e,0x5c3d2e,0,0xff4444,
-      0,0,0xff4444,0x5c3d2e,0x5c3d2e,0xff4444,0,0,
-    ];
+    // Draw pixel potato
+    (function() {
+      const DATA = [
+        [0,4,1,1,1,4,0,0],[5,1,5,5,5,1,5,0],[1,5,6,6,5,5,1,0],[1,5,6,6,6,5,1,0],
+        [1,5,5,6,6,5,1,0],[0,1,5,5,5,5,1,0],[4,0,1,1,1,1,0,4],[0,0,4,1,1,4,0,0],
+      ];
+      const PAL = { 1: '#5c3d2e', 4: '#ff4444', 5: '#ff8c42', 6: '#ffd700' };
+      const c = document.getElementById('spud');
+      const ctx = c.getContext('2d');
+      const px = c.width / 8;
+      DATA.forEach((row, y) => row.forEach((v, x) => {
+        if (PAL[v]) { ctx.fillStyle = PAL[v]; ctx.fillRect(x * px, y * px, px, px); }
+      }));
+    })();
 
-    function renderPotato() {
-      let html = '<div class="potato-grid">';
-      for (let i = 0; i < 64; i++) {
-        const c = HOT_PIXELS[i];
-        const bg = c ? `#${c.toString(16).padStart(6, '0')}` : 'transparent';
-        html += `<div class="px" style="background:${bg}"></div>`;
-      }
-      html += '</div>';
-      // Steam
-      html += '<div class="steam steam-1"></div><div class="steam steam-2"></div><div class="steam steam-3"></div>';
-      return html;
-    }
-
-    function formatTime(seconds) {
-      const m = Math.floor(seconds / 60);
-      const s = seconds % 60;
-      return `${m}:${s.toString().padStart(2, '0')}`;
-    }
-
-    // Get toss ID from URL
-    const tossId = window.location.pathname.split('/catch/')[1];
-    let timerInterval;
-
-    async function loadToss() {
-      try {
-        const res = await fetch(`/api/toss/${tossId}`);
-        const data = await res.json();
-
-        if (data.error) {
-          document.getElementById('content').innerHTML = `
-            <div class="burned">
-              <div class="potato-container">${renderPotato()}</div>
-              <p class="timer">BURNED!</p>
-              <p class="timer-label">${data.error}</p>
-              <a href="/" class="catch-btn">PLAY ANYWAY</a>
-            </div>
-          `;
-          return;
-        }
-
-        // Show the catch page
-        let secondsLeft = data.secondsLeft;
-
-        document.getElementById('content').innerHTML = `
-          <p class="from-text">
-            <span class="from-name">${data.fromName}</span> tossed you a
-          </p>
-          <h1 style="font-size:16px; color:#5c3d2e; text-shadow:2px 2px 0 #c9a84c; margin:8px 0;">
-            HOT POTATO!
-          </h1>
-          <div class="potato-container hot" id="potatoBox">
-            ${renderPotato()}
-          </div>
-          <p class="timer-label">BURNING IN</p>
-          <p class="timer" id="timer">${formatTime(secondsLeft)}</p>
-          <a href="/" class="catch-btn" id="catchBtn">
-            CATCH IT!
-          </a>
-          <p style="font-size:7px; color:#888; margin-top:15px;">
-            Tap to open the app and catch this potato
-          </p>
-        `;
-
-        // Start countdown
-        timerInterval = setInterval(() => {
-          secondsLeft--;
-          const timerEl = document.getElementById('timer');
-          if (!timerEl) return clearInterval(timerInterval);
-
-          timerEl.textContent = formatTime(Math.max(0, secondsLeft));
-
-          // Heat up visuals
-          const heat = 1 - (secondsLeft / data.secondsLeft);
-          const edges = document.querySelectorAll('.edge-burn');
-          edges.forEach(e => e.style.opacity = Math.min(heat * 1.5, 0.8));
-
-          if (secondsLeft <= 30) {
-            timerEl.classList.add('danger');
-            document.body.style.background = `rgb(${135 + heat * 120}, ${206 - heat * 150}, ${235 - heat * 200})`;
-          }
-
-          if (secondsLeft <= 0) {
-            clearInterval(timerInterval);
-            document.getElementById('content').innerHTML = `
-              <div class="burned">
-                <div class="potato-container">${renderPotato()}</div>
-                <p class="timer">BURNED!</p>
-                <p class="timer-label">TOO LATE!</p>
-                <a href="/" class="catch-btn">PLAY ANYWAY</a>
-              </div>
-            `;
-            edges.forEach(e => e.style.opacity = 0);
-          }
-        }, 1000);
-
-      } catch (err) {
-        document.getElementById('content').innerHTML = `
-          <p class="timer-label">Could not load potato</p>
-          <a href="/" class="catch-btn">PLAY GAME</a>
-        `;
-      }
-    }
-
-    loadToss();
+    // Auto-redirect to the game with toss id preserved.
+    // The preview pages briefly (so the animation kicks off a feel),
+    // then jumps into the app which continues the drop-in animation.
+    const tossId = window.location.pathname.split('/catch/')[1] || '';
+    setTimeout(() => {
+      window.location.replace('/?toss=' + encodeURIComponent(tossId));
+    }, 700);
   </script>
 </body>
 </html>
