@@ -124,7 +124,6 @@
       transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
       pointer-events: none;
     }
-    .farmer-orb.npc { border-color: #9b59b6; background: rgba(80,40,120,0.5); }
     .farmer-orb.offline { opacity: 0.65; }
     .farmer-orb.targeted {
       transform: translate(-50%, -50%) scale(1.25);
@@ -1093,12 +1092,12 @@
         const y = cy - Math.cos(theta) * r;
 
         const orb = document.createElement('div');
-        orb.className = 'farmer-orb' + (farmer.isNpc ? ' npc' : '') + (!farmer.online ? ' offline' : '');
+        orb.className = 'farmer-orb' + (!farmer.online ? ' offline' : '');
         orb.dataset.idx = i;
         orb.style.left = x + 'px';
         orb.style.top = y + 'px';
-        const emoji = farmer.isNpc ? '\u{1F33E}' : (farmer.online ? '\u{1F468}\u200D\u{1F33E}' : '\u{1F634}');
-        const status = farmer.isNpc ? 'NPC' : (farmer.online ? 'online' : 'offline');
+        const emoji = farmer.online ? '\u{1F468}\u200D\u{1F33E}' : '\u{1F634}';
+        const status = farmer.online ? 'online' : 'offline';
         orb.innerHTML =
           '<div class="farmer-emoji">' + emoji + '</div>' +
           '<div class="farmer-name">' + escapeHtml(farmer.name) + '</div>' +
