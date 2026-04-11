@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { Server } = require('socket.io');
 const { GameManager } = require('./game');
+const push = require('./push');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,12 +12,51 @@ const io = new Server(server, {
   cors: { origin: '*' }
 });
 
+app.use(express.json({ limit: '16kb' }));
+
 const gameManager = new GameManager();
+push.init();
 
-// Serve static landing page
-app.use(express.static(path.join(__dirname, 'public')));
+// Helper: fire a push notification when a player receives a potato.
+// Best-effort; never throws into the request path.
+function notifyIncomingPotato(receiverDbId, fromName, potatoName) {
+  if (!receiverDbId || !gameManager.db) return;
+  const payload = {
+    type: 'potato_incoming',
+    title: '🥔🔥 INCOMING POTATO!',
+    body: (fromName || 'A friend') + ' tossed ye a ' + (potatoName || 'hot potato') + '!',
+    url: '/',
+    tag: 'potato-incoming',
+  };
+  push.sendToPlayer(gameManager.db, receiverDbId, payload).catch((e) => {
+    console.warn('push send error:', e.message);
+  });
+}
 
-app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.5.0' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.6.0' }));
+
+// --- Web Push: VAPID public key + subscribe / unsubscribe ---
+app.get('/api/vapid-public-key', (req, res) => {
+  res.json({ publicKey: push.getPublicKey() });
+});
+
+app.post('/api/push/subscribe', (req, res) => {
+  const { playerId, subscription } = req.body || {};
+  if (!playerId || !subscription || !subscription.endpoint || !subscription.keys) {
+    return res.status(400).json({ error: 'playerId and subscription required' });
+  }
+  if (!gameManager.db) return res.status(503).json({ error: 'db unavailable' });
+  gameManager.db.upsertPushSubscription(playerId, subscription);
+  res.json({ ok: true });
+});
+
+app.post('/api/push/unsubscribe', (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+  if (!gameManager.db) return res.status(503).json({ error: 'db unavailable' });
+  gameManager.db.removePushSubscription(endpoint);
+  res.json({ ok: true });
+});
 
 // Admin: reset all player data
 app.post('/admin/reset', (req, res) => {
@@ -160,6 +200,17 @@ io.on('connection', (socket) => {
         badges: result.receiverBadges
       });
     }
+    // Push notification to the receiver (works whether they're online-but-backgrounded
+    // or fully offline). Resolve their persistent db id from the target id.
+    let receiverDbId = null;
+    const onlineReceiver = gameManager.players.get(targetPlayerId);
+    if (onlineReceiver) {
+      receiverDbId = onlineReceiver.dbId || onlineReceiver.id;
+    } else {
+      // For offline players, the target id IS the db id (see broadcastPlayerList)
+      receiverDbId = targetPlayerId;
+    }
+    notifyIncomingPotato(receiverDbId, result.tosser.name, result.potato && result.potato.name);
     const tossEmoji = result.tossType === 'danger' ? '🔥' : result.tossType === 'hot' ? '♨️' : '🥔';
     broadcastEvent(result.tosser.name + ' tossed a potato to ' + result.receiver.name + '! ' + tossEmoji);
     broadcastPlayerList();

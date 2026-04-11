@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hot-potato-v1';
+const CACHE_NAME = 'hot-potato-v2';
 const ASSETS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -23,4 +23,46 @@ self.addEventListener('fetch', (e) => {
       return r;
     }).catch(() => caches.match(e.request))
   );
+});
+
+// --- Web Push: incoming potato notification ---
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
+  const title = data.title || '🥔🔥 INCOMING POTATO!';
+  const body = data.body || 'A friend tossed ye a hot potato — toss it back before it burns!';
+  const options = {
+    body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: data.tag || 'potato-incoming',
+    renotify: true,
+    requireInteraction: false,
+    vibrate: [120, 60, 120, 60, 200],
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Click on the notification → focus an existing tab or open the app.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of allClients) {
+      // Focus the first same-origin tab we already have open
+      try {
+        const url = new URL(client.url);
+        if (url.origin === self.location.origin) {
+          await client.focus();
+          if ('navigate' in client) { try { await client.navigate(target); } catch (_) {} }
+          return;
+        }
+      } catch (_) {}
+    }
+    if (self.clients.openWindow) {
+      await self.clients.openWindow(target);
+    }
+  })());
 });
