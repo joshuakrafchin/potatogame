@@ -1035,9 +1035,15 @@
         const pc = document.getElementById('potatoContainer');
         pc.classList.remove('potato-receiving', 'potato-tossing', 'potato-dragging');
         pc.style.transform = '';
-        // Force layout before measuring so farmer ring uses the *final* potato position
+        // Force layout before measuring so farmer ring uses the *final* potato position.
+        // We also defer to the next animation frame, because when the game screen has
+        // just transitioned from display:none to display:flex (e.g. right after the
+        // first unearth), getBoundingClientRect() can still return 0,0 and the ring
+        // ends up positioned off-screen. requestAnimationFrame guarantees the browser
+        // has computed layout for the newly-visible screen.
         void has.offsetHeight;
         layoutFarmers();
+        requestAnimationFrame(() => { if (state.hasPotato) layoutFarmers(); });
       } else {
         has.style.display = 'none';
         no.style.display = 'flex';
