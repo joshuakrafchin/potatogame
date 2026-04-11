@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hot-potato-v2';
+const CACHE_NAME = 'hot-potato-v3';
 const ASSETS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -14,8 +14,15 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Network-first for HTML/API, cache-first for assets
+  // Skip socket.io and non-GETs entirely
   if (e.request.url.includes('/socket.io/') || e.request.method !== 'GET') return;
+  // Never cache API routes — they must always hit the live server. Otherwise
+  // the SW can hand back stale data like an old VAPID public key, which
+  // causes push subscriptions to be bound to keys the server no longer has.
+  const url = new URL(e.request.url);
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/health')) {
+    return; // let the browser fetch normally, no SW caching
+  }
   e.respondWith(
     fetch(e.request).then(r => {
       const clone = r.clone();
