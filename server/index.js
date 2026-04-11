@@ -36,7 +36,7 @@ function notifyIncomingPotato(receiverDbId, fromName, potatoName) {
   });
 }
 
-app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.6.0' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.6.1' }));
 
 // --- Web Push: VAPID public key + subscribe / unsubscribe ---
 app.get('/api/vapid-public-key', (req, res) => {
@@ -50,6 +50,7 @@ app.post('/api/push/subscribe', (req, res) => {
   }
   if (!gameManager.db) return res.status(503).json({ error: 'db unavailable' });
   gameManager.db.upsertPushSubscription(playerId, subscription);
+  console.log('[push] subscribed:', playerId, subscription.endpoint.slice(0, 60) + '...');
   res.json({ ok: true });
 });
 
@@ -59,6 +60,22 @@ app.post('/api/push/unsubscribe', (req, res) => {
   if (!gameManager.db) return res.status(503).json({ error: 'db unavailable' });
   gameManager.db.removePushSubscription(endpoint);
   res.json({ ok: true });
+});
+
+// Test endpoint: send a push to yourself, so you can verify the pipeline
+// without needing a second player to toss at you.
+app.post('/api/push/test', async (req, res) => {
+  const { playerId } = req.body || {};
+  if (!playerId) return res.status(400).json({ error: 'playerId required' });
+  if (!gameManager.db) return res.status(503).json({ error: 'db unavailable' });
+  const result = await push.sendToPlayer(gameManager.db, playerId, {
+    type: 'test',
+    title: '🥔 Test ping!',
+    body: 'If ye see this, push notifications are workin grand.',
+    url: '/',
+    tag: 'potato-test',
+  });
+  res.json(result);
 });
 
 // Admin: reset all player data
@@ -213,6 +230,7 @@ io.on('connection', (socket) => {
       // For offline players, the target id IS the db id (see broadcastPlayerList)
       receiverDbId = targetPlayerId;
     }
+    console.log('[push] toss → receiverDbId=', receiverDbId, 'from=', result.tosser.name);
     notifyIncomingPotato(receiverDbId, result.tosser.name, result.potato && result.potato.name);
     const tossEmoji = result.tossType === 'danger' ? '🔥' : result.tossType === 'hot' ? '♨️' : '🥔';
     broadcastEvent(result.tosser.name + ' tossed a potato to ' + result.receiver.name + '! ' + tossEmoji);
