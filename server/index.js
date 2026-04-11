@@ -14,6 +14,9 @@ const io = new Server(server, {
 
 app.use(express.json({ limit: '16kb' }));
 
+// Serve static landing page
+app.use(express.static(path.join(__dirname, 'public')));
+
 const gameManager = new GameManager();
 push.init();
 
