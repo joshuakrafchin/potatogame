@@ -1446,6 +1446,26 @@
       return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     }
 
+    // Compare the existing browser subscription's applicationServerKey to the
+    // server's current VAPID public key. If they differ, the subscription is
+    // tied to a key the server no longer has and pushes will silently fail.
+    // Returns true if the subscription is still valid for the current server.
+    async function subscriptionMatchesServer(existing, serverPublicKey) {
+      if (!existing || !serverPublicKey) return false;
+      try {
+        const buf = existing.options && existing.options.applicationServerKey;
+        if (!buf) return false;
+        const bytes = new Uint8Array(buf);
+        // base64url-encode the bytes for comparison
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return b64 === serverPublicKey;
+      } catch (_) {
+        return false;
+      }
+    }
+
     // Show / hide / update the opt-in card based on browser state.
     async function refreshNotifCardState() {
       const card = document.getElementById('notifCard');
@@ -1478,17 +1498,34 @@
         btn.disabled = true;
         return;
       }
-      // Check if already subscribed
+      // Check if already subscribed AND the subscription matches the server's
+      // current VAPID key. If not, unsubscribe so the user can re-opt-in.
       let existing = null;
       try {
         if (swRegistration) existing = await swRegistration.pushManager.getSubscription();
       } catch (_) {}
       if (perm === 'granted' && existing) {
+        let serverKey = null;
+        try {
+          const r = await fetch('/api/vapid-public-key');
+          const j = await r.json();
+          serverKey = j.publicKey;
+        } catch (_) {}
+        const matches = await subscriptionMatchesServer(existing, serverKey);
+        if (!matches) {
+          // Stale subscription — drop it locally so the user can re-subscribe
+          try { await existing.unsubscribe(); } catch (_) {}
+          existing = null;
+          console.log('[push] dropped stale subscription, server key changed');
+        }
+      }
+      if (perm === 'granted' && existing) {
         card.style.display = 'flex';
         card.classList.add('enabled');
         sub.textContent = "Ye'll get pinged when a potato flies at ye.";
-        btn.textContent = 'On';
-        btn.disabled = true;
+        btn.textContent = 'Refresh';
+        btn.disabled = false;
+        btn.onclick = enablePushNotifications; // re-subscribe on tap
         if (testBtn) testBtn.style.display = '';
         return;
       }

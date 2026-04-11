@@ -48,19 +48,22 @@ function getPublicKey() {
   return keys.publicKey;
 }
 
-// Send a push to a single subscription. Returns true on success, false if
-// the subscription is dead (404 / 410) and should be removed.
+// Send a push to a single subscription. Returns ok=true on success.
+// dead=true means the subscription should be deleted from the DB:
+//   404/410 = subscription expired or unknown
+//   401/403 = VAPID key mismatch (subscription bound to a different key);
+//             the only way to recover is for the client to re-subscribe.
 async function sendOne(subscription, payload) {
   try {
     await webpush.sendNotification(subscription, JSON.stringify(payload));
     return { ok: true };
   } catch (err) {
     const status = err.statusCode || 0;
-    // 404/410 = subscription is gone for good — caller should delete it
-    if (status === 404 || status === 410) {
+    if (status === 404 || status === 410 || status === 401 || status === 403) {
+      console.warn('[push] dead subscription (' + status + '):', subscription.endpoint.slice(0, 60) + '...');
       return { ok: false, dead: true };
     }
-    console.warn('Push send failed:', status, err.body || err.message);
+    console.warn('[push] send failed:', status, err.body || err.message);
     return { ok: false, dead: false };
   }
 }
