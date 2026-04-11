@@ -1594,6 +1594,23 @@
         // Fetch VAPID public key and subscribe
         const keyResp = await fetch('/api/vapid-public-key');
         const { publicKey } = await keyResp.json();
+        // Force-drop any existing subscription so we ALWAYS create a fresh one
+        // tied to the current server VAPID key. Without this, Safari hands
+        // back its cached subscription (still bound to the old key) and the
+        // server gets a stale row that fails with 401/403.
+        try {
+          const existing = await swRegistration.pushManager.getSubscription();
+          if (existing) {
+            await existing.unsubscribe();
+            try {
+              await fetch('/api/push/unsubscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint: existing.endpoint }),
+              });
+            } catch (_) {}
+          }
+        } catch (_) {}
         const subscription = await swRegistration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(publicKey),
