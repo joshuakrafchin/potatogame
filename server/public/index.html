@@ -447,6 +447,7 @@
         <div class="notif-sub" id="notifSub">Tap to allow notifications</div>
       </div>
       <button class="notif-btn" id="notifBtn" onclick="enablePushNotifications()">Turn on</button>
+      <button class="notif-btn" id="notifTestBtn" onclick="sendTestPush()" style="display:none;margin-left:6px;">Test</button>
     </div>
 
     <!-- Activity feed -->
@@ -1450,7 +1451,9 @@
       const card = document.getElementById('notifCard');
       const sub = document.getElementById('notifSub');
       const btn = document.getElementById('notifBtn');
+      const testBtn = document.getElementById('notifTestBtn');
       if (!card) return;
+      if (testBtn) testBtn.style.display = 'none';
       if (!pushSupported()) {
         card.style.display = 'none';
         return;
@@ -1486,6 +1489,7 @@
         sub.textContent = "Ye'll get pinged when a potato flies at ye.";
         btn.textContent = 'On';
         btn.disabled = true;
+        if (testBtn) testBtn.style.display = '';
         return;
       }
       // Default state — needs opt-in
@@ -1495,6 +1499,28 @@
       btn.textContent = 'Turn on';
       btn.disabled = false;
       btn.onclick = enablePushNotifications;
+    }
+
+    // Self-test: ask the server to send us a push right now
+    async function sendTestPush() {
+      if (!state.dbId) { showToast('Not connected yet.', 'error'); return; }
+      try {
+        const resp = await fetch('/api/push/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId: state.dbId }),
+        });
+        const data = await resp.json();
+        if (data && data.sent > 0) {
+          showToast('Test push sent! Lock yer phone and wait a sec.', 'success');
+        } else if (data && data.total === 0) {
+          showToast('No subscription found on the server. Try Turn on again.', 'error');
+        } else {
+          showToast('Push attempted but none delivered. Check Render logs.', 'error', 5000);
+        }
+      } catch (err) {
+        showToast('Test push failed: ' + err.message, 'error');
+      }
     }
 
     // Convert a base64url VAPID public key to a Uint8Array (required by PushManager).

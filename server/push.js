@@ -68,16 +68,28 @@ async function sendOne(subscription, payload) {
 // Send to every subscription registered for this player.
 // db: the db module (so we can prune dead subs).
 async function sendToPlayer(db, playerId, payload) {
-  if (!db || !playerId) return;
+  if (!db || !playerId) {
+    console.log('[push] sendToPlayer: missing db or playerId', { playerId });
+    return { sent: 0, dead: 0, total: 0 };
+  }
   init();
   const subs = db.getPushSubscriptionsForPlayer(playerId);
-  if (!subs || subs.length === 0) return;
+  if (!subs || subs.length === 0) {
+    console.log('[push] sendToPlayer: no subscriptions for', playerId);
+    return { sent: 0, dead: 0, total: 0 };
+  }
+  let sent = 0;
+  let dead = 0;
   await Promise.all(subs.map(async (sub) => {
     const result = await sendOne(sub, payload);
+    if (result.ok) sent++;
     if (result.dead) {
+      dead++;
       db.removePushSubscription(sub.endpoint);
     }
   }));
+  console.log('[push] sendToPlayer:', playerId, '→', { sent, dead, total: subs.length });
+  return { sent, dead, total: subs.length };
 }
 
 module.exports = { init, getPublicKey, sendToPlayer };
