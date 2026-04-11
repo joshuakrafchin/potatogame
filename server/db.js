@@ -35,6 +35,16 @@ db.exec(`
     created_at INTEGER DEFAULT (unixepoch() * 1000),
     last_seen INTEGER DEFAULT (unixepoch() * 1000)
   );
+
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at INTEGER DEFAULT (unixepoch() * 1000)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_push_subs_player ON push_subscriptions(player_id);
 `);
 
 // --- Prepared statements ---
@@ -142,6 +152,28 @@ module.exports = {
     const rows = db.prepare('SELECT * FROM pending_potatoes WHERE player_id = ?').all(playerId);
     db.prepare('DELETE FROM pending_potatoes WHERE player_id = ?').run(playerId);
     return rows.map(r => JSON.parse(r.potato));
+  },
+
+  // --- Push subscriptions ---
+  upsertPushSubscription(playerId, sub) {
+    if (!playerId || !sub || !sub.endpoint || !sub.keys) return;
+    db.prepare(`
+      INSERT INTO push_subscriptions (endpoint, player_id, p256dh, auth)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET player_id = excluded.player_id
+    `).run(sub.endpoint, playerId, sub.keys.p256dh, sub.keys.auth);
+  },
+
+  getPushSubscriptionsForPlayer(playerId) {
+    const rows = db.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE player_id = ?').all(playerId);
+    return rows.map(r => ({
+      endpoint: r.endpoint,
+      keys: { p256dh: r.p256dh, auth: r.auth }
+    }));
+  },
+
+  removePushSubscription(endpoint) {
+    db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint);
   },
 
   db,

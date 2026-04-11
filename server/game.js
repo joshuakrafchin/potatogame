@@ -205,6 +205,7 @@ class GameManager {
   getPlayerPublic(player) {
     return {
       id: player.id,
+      dbId: player.dbId || player.id,
       name: player.name,
       coins: player.coins,
       hasPotato: !!player.potato,
