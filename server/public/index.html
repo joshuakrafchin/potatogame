@@ -1597,9 +1597,11 @@
           await refreshNotifCardState();
           return;
         }
-        // Fetch VAPID public key and subscribe
-        const keyResp = await fetch('/api/vapid-public-key');
+        // Fetch VAPID public key and subscribe. cache:'no-store' makes sure
+        // we never get a stale key from any HTTP cache or service worker.
+        const keyResp = await fetch('/api/vapid-public-key', { cache: 'no-store' });
         const { publicKey } = await keyResp.json();
+        console.log('[push] using server VAPID key:', publicKey.slice(0, 12) + '...');
         // Force-drop any existing subscription so we ALWAYS create a fresh one
         // tied to the current server VAPID key. Without this, Safari hands
         // back its cached subscription (still bound to the old key) and the
