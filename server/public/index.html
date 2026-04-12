@@ -1445,6 +1445,13 @@
         // If permission was already granted in a previous session, the card stays hidden.
         refreshNotifCardState();
       }).catch(() => {});
+      // Listen for push messages forwarded by the SW when the PWA is in the
+      // foreground (iOS suppresses notification banners for the active app).
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'push') {
+          showToast(event.data.body || event.data.title || 'Incoming potato!', 'success', 4000);
+        }
+      });
     }
 
     // --- WEB PUSH NOTIFICATIONS ---
@@ -1555,7 +1562,7 @@
         });
         const data = await resp.json();
         if (data && data.sent > 0) {
-          showToast('Test push sent! Lock yer phone and wait a sec.', 'success');
+          showToast('Test push sent! Switch to another app to see it.', 'success');
         } else if (data && data.total === 0) {
           showToast('No subscription found on the server. Try Turn on again.', 'error');
         } else {

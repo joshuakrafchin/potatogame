@@ -48,7 +48,16 @@ self.addEventListener('push', (event) => {
     vibrate: [120, 60, 120, 60, 200],
     data: { url: data.url || '/' },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    // Always show the system notification (visible when app is backgrounded)
+    await self.registration.showNotification(title, options);
+    // Also forward to any focused client so the app can show an in-app alert
+    // (iOS suppresses notification banners when the PWA is in the foreground)
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clients) {
+      client.postMessage({ type: 'push', title, body });
+    }
+  })());
 });
 
 // Click on the notification → focus an existing tab or open the app.
