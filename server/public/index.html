@@ -136,6 +136,38 @@
     .farmer-status { font-size: 6px; color: #b5e8a3; margin-top: 3px; }
     .farmer-orb.targeted .farmer-status { color: #ffd700; }
 
+    /* Field-size variants for slingshot layout */
+    .farmer-orb.field-far { width: 62px; padding: 6px 3px; }
+    .farmer-orb.field-far .farmer-emoji { font-size: 20px; }
+    .farmer-orb.field-far .farmer-name { font-size: 7px; }
+    .farmer-orb.field-mid { width: 72px; }
+    .farmer-orb.field-close { width: 88px; padding: 10px 5px; }
+    .farmer-orb.field-close .farmer-emoji { font-size: 30px; }
+
+    /* Trajectory dots shown while pulling the slingshot */
+    .traj-dot {
+      position: absolute; width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,215,0,0.6); pointer-events: none;
+      transform: translate(-50%,-50%);
+    }
+
+    /* Power ring around potato while pulling */
+    .power-ring {
+      position: absolute; top: 50%; left: 50%; border-radius: 50%;
+      border: 3px solid rgba(255,215,0,0.5); pointer-events: none;
+      transform: translate(-50%,-50%);
+      transition: width 0.1s, height 0.1s, border-color 0.1s;
+    }
+
+    /* Hit flash on target */
+    .farmer-orb.hit-flash {
+      animation: hitPop 0.4s ease-out forwards;
+    }
+    @keyframes hitPop {
+      0% { transform: translate(-50%,-50%) scale(1.3); background: rgba(255,215,0,0.8); box-shadow: 0 0 40px #ffd700; }
+      100% { transform: translate(-50%,-50%) scale(1); background: rgba(0,0,0,0.35); box-shadow: none; }
+    }
+
     /* Aim line while dragging */
     .aim-line {
       position: fixed; top: 0; left: 0; pointer-events: none; z-index: 55;
@@ -463,17 +495,18 @@
 
   <!-- GAME SCREEN -->
   <div class="screen" id="screen-game" style="justify-content:flex-start;">
-    <!-- Farmer ring (targets orbit the potato; direction of drag picks one) -->
+    <!-- Player field (targets scattered above, slingshot below) -->
     <div class="farmer-field" id="farmerField"></div>
-    <!-- Aim line rendered while dragging -->
-    <div class="aim-line" id="aimLine"></div>
+    <!-- Trajectory dots drawn during slingshot pull -->
+    <div class="farmer-field" id="trajContainer"></div>
 
     <!-- Has potato -->
-    <div id="hasPotato" style="display:flex;flex-direction:column;align-items:center;width:100%;padding-top:70px;">
+    <div id="hasPotato" style="display:flex;flex-direction:column;align-items:center;width:100%;height:100%;padding-top:70px;padding-bottom:24px;">
       <div class="heat-bar-wrap"><div class="heat-bar-fill" id="heatFill"></div></div>
       <div class="heat-label" id="heatLabel">&#129364; Fresh potato</div>
-      <div class="potato-container" id="potatoContainer" style="margin-top:32vh;position:relative;">
-        <div class="swipe-hint">drag to a farmer</div>
+      <div style="flex:1;"></div>
+      <div class="potato-container" id="potatoContainer" style="position:relative;">
+        <div class="swipe-hint">pull back to launch!</div>
         <div class="sweat sweat-1">&#128167;</div>
         <div class="sweat sweat-2">&#128167;</div>
         <div class="sweat sweat-3">&#128167;</div>
@@ -541,7 +574,7 @@
       name: '', coins: 10, badges: [], hasPotato: false,
       potato: null, heat: 0, selectedTarget: null, heatInterval: null,
       onlinePlayers: [], // real players from server
-      farmers: [],       // rendered ring of targets (with positions + angles)
+      fieldTargets: [],  // player targets in the slingshot field
       myId: null,
       dbId: null,        // persistent player id (for push subscriptions)
       pendingTossClaim: null, // tossId from ?toss=... URL param
@@ -734,7 +767,7 @@
         state.onlinePlayers = players.filter(p => p.id !== state.myId);
         const onlineCount = players.filter(p => p.online).length;
         document.getElementById('playerCount').textContent = players.length + ' player' + (players.length !== 1 ? 's' : '') + ' (' + onlineCount + ' online)';
-        if (state.hasPotato) layoutFarmers();
+        if (state.hasPotato) layoutField();
       });
 
       // Someone tossed YOU a potato
@@ -969,13 +1002,18 @@
     }
 
     // --- TOSS ---
-    function tossPotato() {
+    // fromSlingshot: true when called after a projectile hit (skip tossUp anim)
+    function tossPotato(fromSlingshot) {
       if (!state.hasPotato || !state.selectedTarget) return;
       clearInterval(state.heatInterval);
 
-      // Toss animation (plays immediately for responsiveness)
       const container = document.getElementById('potatoContainer');
-      container.classList.add('potato-tossing');
+      const delay = fromSlingshot ? 100 : 650;
+      if (!fromSlingshot) {
+        container.classList.add('potato-tossing');
+      } else {
+        container.style.visibility = 'hidden';
+      }
 
       // Tell server about the toss
       if (socket && socket.connected) {
@@ -987,6 +1025,8 @@
         state.potato = null;
         state.heat = 0;
         container.classList.remove('potato-tossing');
+        container.style.visibility = '';
+        container.style.transform = '';
         document.getElementById('edgeGlow').className = 'edge-glow';
         document.body.style.background = '#87ceeb';
         document.querySelectorAll('.sweat').forEach(s => s.classList.remove('visible'));
@@ -1006,7 +1046,7 @@
           setTimeout(() => { showScreen('game'); renderGameState(); }, 2500);
         }
         // If connected, server sends toss_success which triggers relief
-      }, 650);
+      }, delay);
     }
 
     // --- BURN (offline fallback only — server handles burn in multiplayer) ---
@@ -1031,45 +1071,36 @@
         has.style.display = 'flex';
         no.style.display = 'none';
         drawPotato('gamePotato', state.heat > 0.5);
-        // Reset any leftover animation transforms so farmer-ring measurements are clean
         const pc = document.getElementById('potatoContainer');
         pc.classList.remove('potato-receiving', 'potato-tossing', 'potato-dragging');
         pc.style.transform = '';
-        // Force layout before measuring so farmer ring uses the *final* potato position.
-        // We also defer to the next animation frame, because when the game screen has
-        // just transitioned from display:none to display:flex (e.g. right after the
-        // first unearth), getBoundingClientRect() can still return 0,0 and the ring
-        // ends up positioned off-screen. requestAnimationFrame guarantees the browser
-        // has computed layout for the newly-visible screen.
+        pc.style.visibility = '';
+        slingState.inFlight = false;
+        // Defer layout to next frame so the screen is fully visible before measuring
         void has.offsetHeight;
-        layoutFarmers();
-        requestAnimationFrame(() => { if (state.hasPotato) layoutFarmers(); });
+        layoutField();
+        requestAnimationFrame(() => { if (state.hasPotato) layoutField(); });
       } else {
         has.style.display = 'none';
         no.style.display = 'flex';
         drawPotato('emptyPotato', false);
-        // Clear farmer field when no potato
         const field = document.getElementById('farmerField');
         if (field) field.innerHTML = '';
-        state.farmers = [];
+        state.fieldTargets = [];
+        clearTrajectory();
       }
     }
 
-    // --- FARMER RING: position targets around the potato, picked by drag direction ---
-    // Each rendered farmer gets an angle (theta, clockwise from "up") stored in state.farmers.
-    // During drag, the nearest farmer to the drag angle is highlighted and becomes the target.
-    function layoutFarmers() {
+    // --- SLINGSHOT FIELD: players scattered above, potato at bottom ---
+    function layoutField() {
       const field = document.getElementById('farmerField');
       if (!field) return;
       field.innerHTML = '';
-      state.farmers = [];
-
-      // Only show the ring when we have a potato
+      state.fieldTargets = [];
       if (!state.hasPotato) return;
 
       const players = state.onlinePlayers || [];
       if (players.length === 0) {
-        // Show a helpful message in the middle of the ring
         const empty = document.createElement('div');
         empty.style.cssText = 'position:absolute;left:50%;top:22%;transform:translateX(-50%);font-size:10px;color:rgba(255,255,255,0.7);text-align:center;max-width:260px;line-height:1.6;';
         empty.innerHTML = 'No other farmers yet!<br>Share the link to invite friends.';
@@ -1077,74 +1108,53 @@
         return;
       }
 
-      // Position farmers in an arc around the potato
-      const potato = document.getElementById('potatoContainer');
-      const rect = potato.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const n = Math.min(players.length, 9);
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      // Sort: online first, then offline
+      const sorted = [...players].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
+      const n = Math.min(sorted.length, 9);
 
-      // Safe zones: keep orbs out of the heat bar at the top and off the edges.
-      // Orb is ~82px wide and ~88px tall; half-sizes used as margins.
-      const ORB_HW = 45;   // half-width + breathing room
-      const ORB_HH = 48;   // half-height + breathing room
-      const TOP_SAFE = 135; // heat bar + label live here
-      const SIDE_SAFE = 12;
-      const BOTTOM_SAFE = 12;
-
-      // Max radius that keeps an orb placed straight up from hitting the heat bar,
-      // and that keeps orbs at ±90° from spilling off the sides.
-      const maxRadiusUp = Math.max(70, cy - TOP_SAFE - ORB_HH);
-      const maxRadiusSide = Math.max(70, Math.min(cx, window.innerWidth - cx) - SIDE_SAFE - ORB_HW);
-      const maxRadiusDown = Math.max(70, window.innerHeight - cy - BOTTOM_SAFE - ORB_HH);
-
-      // Pick the largest radius that still honours the "up" and "side" bounds, clamped
-      // to a sensible range. On tiny viewports this can shrink below 130 — that's fine,
-      // it just means the orbs live closer to the potato.
-      let radius = Math.min(240, Math.max(90, Math.min(maxRadiusUp, maxRadiusSide)));
-
-      // Minimum angle between adjacent orbs so their bounding circles don't touch.
-      const minStep = n > 1 ? 2 * Math.asin(Math.min(1, (ORB_HW + 6) / radius)) : 0;
-      // Ideal arc span: enough to seat all orbs without overlap, up to 280°.
-      const neededSpan = (n - 1) * minStep;
-      const maxSpan = Math.PI * 280 / 180;
-      const arcSpan = Math.min(maxSpan, Math.max(neededSpan, (n - 1) * Math.PI / 5 + Math.PI / 3));
-
-      // If the needed span exceeds our max, we shrink the radius until orbs fit on the 280° arc.
-      // (2 * asin(ORB_HW / r) * (n-1) <= maxSpan  =>  r >= ORB_HW / sin(maxSpan / (2*(n-1))))
-      if (n > 1 && neededSpan > maxSpan) {
-        const needed = (ORB_HW + 6) / Math.sin(maxSpan / (2 * (n - 1)));
-        radius = Math.max(radius, Math.min(240, needed));
+      // Distribute into rows: close (easy), mid, far (hard)
+      const rows = [];
+      if (n <= 2) {
+        rows.push({ yFrac: 0.35, players: sorted.slice(0, n), hitR: 55, size: 'close' });
+      } else if (n <= 4) {
+        const half = Math.ceil(n / 2);
+        rows.push({ yFrac: 0.18, players: sorted.slice(0, n - half), hitR: 42, size: 'mid' });
+        rows.push({ yFrac: 0.40, players: sorted.slice(n - half), hitR: 52, size: 'close' });
+      } else {
+        const r1 = Math.ceil(n / 3);
+        const r2 = Math.ceil((n - r1) / 2);
+        rows.push({ yFrac: 0.13, players: sorted.slice(0, r1), hitR: 34, size: 'far' });
+        rows.push({ yFrac: 0.28, players: sorted.slice(r1, r1 + r2), hitR: 44, size: 'mid' });
+        rows.push({ yFrac: 0.44, players: sorted.slice(r1 + r2), hitR: 54, size: 'close' });
       }
 
-      for (let i = 0; i < n; i++) {
-        const farmer = players[i];
-        const t = n === 1 ? 0 : (i / (n - 1)) - 0.5;
-        const theta = t * arcSpan; // 0 = straight up, negative = left, positive = right
-        // Per-orb radius: if this orb is below the potato center (|theta| > 90°), use the
-        // "down" bound so it doesn't spill off the bottom. Otherwise use the top/side bound.
-        let r = radius;
-        if (Math.abs(theta) > Math.PI / 2) {
-          r = Math.min(r, maxRadiusDown);
+      for (const row of rows) {
+        const rn = row.players.length;
+        for (let i = 0; i < rn; i++) {
+          const farmer = row.players[i];
+          const margin = 0.14;
+          const xFrac = rn === 1 ? 0.5 : margin + (1 - 2 * margin) * (i / (rn - 1));
+          // Deterministic jitter from player name for a natural scattered look
+          const jx = (Math.sin(farmer.name.length * 7 + i * 13) * 0.03);
+          const jy = (Math.cos(farmer.name.length * 11 + i * 17) * 0.015);
+          const px = Math.max(50, Math.min(W - 50, (xFrac + jx) * W));
+          const py = Math.max(80, (row.yFrac + jy) * H);
+
+          const orb = document.createElement('div');
+          orb.className = 'farmer-orb field-' + row.size + (!farmer.online ? ' offline' : '');
+          orb.style.left = px + 'px';
+          orb.style.top = py + 'px';
+          const emoji = farmer.online ? '\u{1F468}\u200D\u{1F33E}' : '\u{1F634}';
+          const status = farmer.online ? 'online' : 'offline';
+          orb.innerHTML =
+            '<div class="farmer-emoji">' + emoji + '</div>' +
+            '<div class="farmer-name">' + escapeHtml(farmer.name) + '</div>' +
+            '<div class="farmer-status">' + status + '</div>';
+          field.appendChild(orb);
+          state.fieldTargets.push({ player: farmer, x: px, y: py, hitRadius: row.hitR, row: row.size, orb });
         }
-        // Screen coords: sin(theta) = x offset, -cos(theta) = y offset (up is -y)
-        const x = cx + Math.sin(theta) * r;
-        const y = cy - Math.cos(theta) * r;
-
-        const orb = document.createElement('div');
-        orb.className = 'farmer-orb' + (!farmer.online ? ' offline' : '');
-        orb.dataset.idx = i;
-        orb.style.left = x + 'px';
-        orb.style.top = y + 'px';
-        const emoji = farmer.online ? '\u{1F468}\u200D\u{1F33E}' : '\u{1F634}';
-        const status = farmer.online ? 'online' : 'offline';
-        orb.innerHTML =
-          '<div class="farmer-emoji">' + emoji + '</div>' +
-          '<div class="farmer-name">' + escapeHtml(farmer.name) + '</div>' +
-          '<div class="farmer-status">' + status + '</div>';
-        field.appendChild(orb);
-
-        state.farmers.push({ player: farmer, theta, x, y, orb });
       }
     }
 
@@ -1152,22 +1162,8 @@
       return String(s).replace(/[<>&"']/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
     }
 
-    // Pick the farmer whose angle is nearest to the drag angle.
-    // dragTheta: radians, 0 = up, positive = right (screen clockwise from up)
-    function findNearestFarmer(dragTheta) {
-      if (!state.farmers || state.farmers.length === 0) return null;
-      let best = null;
-      let bestDiff = Infinity;
-      for (const f of state.farmers) {
-        let diff = Math.abs(f.theta - dragTheta);
-        if (diff > Math.PI) diff = Math.PI * 2 - diff;
-        if (diff < bestDiff) { bestDiff = diff; best = f; }
-      }
-      return { farmer: best, angleDiff: bestDiff };
-    }
-
     // Relayout on resize (mobile rotation, browser zoom)
-    window.addEventListener('resize', () => { if (state.hasPotato) layoutFarmers(); });
+    window.addEventListener('resize', () => { if (state.hasPotato) layoutField(); });
 
     // --- BADGES ---
     function awardBadge(id) {
@@ -1284,13 +1280,22 @@
       document.head.appendChild(style);
     }
 
-    // --- DRAG-AIM GESTURE ---
-    // Drag the potato in any direction. The farmer whose angle is closest to the
-    // drag direction gets targeted (highlighted). On release, if the drag distance
-    // exceeds MIN_STRENGTH, toss to that farmer. Otherwise cancel.
-    let dragState = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, startTime: 0, target: null };
+    // --- SLINGSHOT: pull back to aim, release to launch ---
     const trailContainer = document.getElementById('trailContainer');
-    const MIN_STRENGTH = 50; // pixels of drag needed to commit a toss
+    const SLING = {
+      MAX_PULL: 160,
+      MIN_PULL: 25,
+      MAX_VELOCITY: 850,
+      GRAVITY: 480,
+    };
+    let slingState = { pulling: false, anchorX: 0, anchorY: 0, pullX: 0, pullY: 0, power: 0, launchAngle: 0, inFlight: false, missCount: 0, projRAF: 0 };
+
+    function getSlingshotAnchor() {
+      const pc = document.getElementById('potatoContainer');
+      if (!pc) return { x: window.innerWidth / 2, y: window.innerHeight * 0.78 };
+      const r = pc.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
 
     function getPointerPos(e) {
       if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -1300,119 +1305,223 @@
       if (e.changedTouches) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
       return { x: e.clientX, y: e.clientY };
     }
-
-    // Only start drag if the game screen is the active one and the user has a potato.
     function gameScreenActive() {
       return document.getElementById('screen-game').classList.contains('active');
     }
 
-    function onDragStart(e) {
-      if (!state.hasPotato || !gameScreenActive()) return;
-      const pos = getPointerPos(e);
-      // Start drag if touching near the potato (bigger hit area)
-      const container = document.getElementById('potatoContainer');
-      const rect = container.getBoundingClientRect();
-      const pad = 60;
-      if (pos.x < rect.left - pad || pos.x > rect.right + pad ||
-          pos.y < rect.top - pad || pos.y > rect.bottom + pad) return;
+    // --- Trajectory preview dots ---
+    function clearTrajectory() {
+      const c = document.getElementById('trajContainer');
+      if (c) c.innerHTML = '';
+    }
+    function drawTrajectory(anchorX, anchorY, vx, vy) {
+      const c = document.getElementById('trajContainer');
+      if (!c) return;
+      c.innerHTML = '';
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      for (let i = 1; i <= 7; i++) {
+        const t = i * 0.065;
+        const dx = anchorX + vx * t;
+        const dy = anchorY + vy * t + 0.5 * SLING.GRAVITY * t * t;
+        if (dx < 0 || dx > W || dy < 0 || dy > H) break;
+        const dot = document.createElement('div');
+        dot.className = 'traj-dot';
+        dot.style.left = dx + 'px';
+        dot.style.top = dy + 'px';
+        dot.style.opacity = 0.7 - i * 0.08;
+        c.appendChild(dot);
+      }
+    }
 
-      dragState = { active: true, startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y, startTime: Date.now(), target: null };
-      container.classList.add('potato-dragging');
+    // --- Highlight targets near trajectory ---
+    function highlightTrajectoryTargets(anchorX, anchorY, vx, vy) {
+      document.querySelectorAll('.farmer-orb.targeted').forEach(el => el.classList.remove('targeted'));
+      if (!state.fieldTargets.length) return;
+      // Check which targets the trajectory passes near
+      for (let ti = 1; ti <= 30; ti++) {
+        const t = ti * 0.03;
+        const px = anchorX + vx * t;
+        const py = anchorY + vy * t + 0.5 * SLING.GRAVITY * t * t;
+        if (py < -50 || px < -50 || px > window.innerWidth + 50) break;
+        for (const tgt of state.fieldTargets) {
+          const d = Math.sqrt((px - tgt.x) ** 2 + (py - tgt.y) ** 2);
+          if (d < tgt.hitRadius * 1.3) tgt.orb.classList.add('targeted');
+        }
+      }
+    }
+
+    // --- Pull gesture ---
+    function onDragStart(e) {
+      if (!state.hasPotato || !gameScreenActive() || slingState.inFlight) return;
+      const pos = getPointerPos(e);
+      const anchor = getSlingshotAnchor();
+      const dx = pos.x - anchor.x;
+      const dy = pos.y - anchor.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 140) return; // must start near potato
+      slingState.pulling = true;
+      slingState.anchorX = anchor.x;
+      slingState.anchorY = anchor.y;
+      slingState.pullX = pos.x;
+      slingState.pullY = pos.y;
+      document.getElementById('potatoContainer').classList.add('potato-dragging');
       e.preventDefault();
     }
 
-    function clearTargetHighlight() {
-      document.querySelectorAll('.farmer-orb.targeted').forEach(el => el.classList.remove('targeted'));
-    }
-
-    function updateAimLine(fromX, fromY, toX, toY, strong) {
-      const line = document.getElementById('aimLine');
-      if (!line) return;
-      const dx = toX - fromX;
-      const dy = toY - fromY;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
-      line.style.left = fromX + 'px';
-      line.style.top = fromY + 'px';
-      line.style.height = len + 'px';
-      line.style.transform = 'rotate(' + (angleDeg - 90) + 'deg)';
-      line.classList.add('visible');
-      line.classList.toggle('weak', !strong);
-    }
-
-    function hideAimLine() {
-      const line = document.getElementById('aimLine');
-      if (line) line.classList.remove('visible', 'weak');
-    }
-
     function onDragMove(e) {
-      if (!dragState.active) return;
+      if (!slingState.pulling) return;
       const pos = getPointerPos(e);
-      dragState.currentX = pos.x;
-      dragState.currentY = pos.y;
-
-      const dx = pos.x - dragState.startX;
-      const dy = pos.y - dragState.startY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      const container = document.getElementById('potatoContainer');
-      container.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) rotate(' + (dx * 0.3) + 'deg) scale(' + Math.max(0.8, 1 - dist / 900) + ')';
-
-      // Drag angle, measured clockwise from "up": 0 = up, π/2 = right, -π/2 = left
-      const dragTheta = Math.atan2(dx, -dy);
-
-      // Find + highlight the nearest farmer
-      const pick = findNearestFarmer(dragTheta);
-      clearTargetHighlight();
-      if (pick && pick.farmer) {
-        pick.farmer.orb.classList.add('targeted');
-        dragState.target = pick.farmer.player;
-      } else {
-        dragState.target = null;
+      let dx = pos.x - slingState.anchorX;
+      let dy = pos.y - slingState.anchorY;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      // Clamp pull distance
+      if (dist > SLING.MAX_PULL) {
+        const ratio = SLING.MAX_PULL / dist;
+        dx *= ratio;
+        dy *= ratio;
+        dist = SLING.MAX_PULL;
       }
+      slingState.pullX = slingState.anchorX + dx;
+      slingState.pullY = slingState.anchorY + dy;
+      slingState.power = dist / SLING.MAX_PULL;
 
-      // Aim line: from potato center to finger
-      const rect = document.getElementById('potatoContainer').getBoundingClientRect();
-      const px = rect.left + rect.width / 2 - dx;
-      const py = rect.top + rect.height / 2 - dy;
-      updateAimLine(px, py, pos.x, pos.y, dist >= MIN_STRENGTH);
+      // Launch direction is opposite of pull
+      const launchDx = -dx;
+      const launchDy = -dy;
+      slingState.launchAngle = Math.atan2(launchDy, launchDx);
 
-      // Spawn trail particles in drag direction
-      if (dist > 20 && Math.random() < 0.6) {
-        spawnTrailParticle(pos.x, pos.y, state.heat);
+      // Move potato to pull position
+      const container = document.getElementById('potatoContainer');
+      container.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(' + (1 - slingState.power * 0.15) + ')';
+
+      // Compute launch velocity and show trajectory + target highlights
+      const vx = Math.cos(slingState.launchAngle) * slingState.power * SLING.MAX_VELOCITY;
+      const vy = Math.sin(slingState.launchAngle) * slingState.power * SLING.MAX_VELOCITY;
+      drawTrajectory(slingState.anchorX, slingState.anchorY, vx, vy);
+      highlightTrajectoryTargets(slingState.anchorX, slingState.anchorY, vx, vy);
+
+      // Trail particles at pull point
+      if (dist > 20 && Math.random() < 0.4) {
+        spawnTrailParticle(slingState.pullX, slingState.pullY, state.heat);
       }
       e.preventDefault();
     }
 
     function onDragEnd(e) {
-      if (!dragState.active) return;
-      dragState.active = false;
-      const pos = getPointerEndPos(e);
-      const dx = pos.x - dragState.startX;
-      const dy = pos.y - dragState.startY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
+      if (!slingState.pulling) return;
+      slingState.pulling = false;
       const container = document.getElementById('potatoContainer');
       container.classList.remove('potato-dragging');
-      container.style.transform = '';
-      clearTargetHighlight();
-      hideAimLine();
+      document.querySelectorAll('.farmer-orb.targeted').forEach(el => el.classList.remove('targeted'));
+      clearTrajectory();
 
-      // Valid toss: drag strong enough AND a target was picked
-      if (dist >= MIN_STRENGTH && dragState.target && state.hasPotato) {
-        // Burst of trail particles at release point
-        for (let i = 0; i < 8; i++) {
-          setTimeout(() => spawnTrailParticle(
-            pos.x + (Math.random() - 0.5) * 40,
-            pos.y + (Math.random() - 0.5) * 40,
-            state.heat
-          ), i * 30);
-        }
-        // Commit the toss to the picked farmer
-        state.selectedTarget = dragState.target;
-        tossPotato();
+      if (slingState.power >= SLING.MIN_PULL / SLING.MAX_PULL && state.hasPotato) {
+        launchProjectile();
+      } else {
+        // Snap back — pull was too weak
+        container.style.transform = '';
       }
-      dragState.target = null;
+    }
+
+    // --- Projectile flight ---
+    function launchProjectile() {
+      slingState.inFlight = true;
+      const vx = Math.cos(slingState.launchAngle) * slingState.power * SLING.MAX_VELOCITY;
+      const vy = Math.sin(slingState.launchAngle) * slingState.power * SLING.MAX_VELOCITY;
+
+      const container = document.getElementById('potatoContainer');
+      container.style.transform = '';
+      container.style.transition = 'none';
+
+      // We animate using the container's transform relative to its resting position
+      const anchor = getSlingshotAnchor();
+      let projX = anchor.x;
+      let projY = anchor.y;
+      let projVx = vx;
+      let projVy = vy;
+      let spin = 0;
+      let lastTime = performance.now();
+      // Adaptive difficulty: widen hit zones after consecutive misses
+      const missMult = 1 + Math.min(slingState.missCount * 0.15, 0.6);
+
+      function animate(now) {
+        const dt = Math.min((now - lastTime) / 1000, 0.05); // cap dt to avoid huge jumps
+        lastTime = now;
+        projVy += SLING.GRAVITY * dt;
+        projX += projVx * dt;
+        projY += projVy * dt;
+        spin += 400 * dt;
+
+        // Position potato at projectile location
+        const offX = projX - anchor.x;
+        const offY = projY - anchor.y;
+        container.style.transform = 'translate(' + offX + 'px, ' + offY + 'px) rotate(' + spin + 'deg) scale(0.9)';
+
+        // Trail particles
+        if (Math.random() < 0.7) spawnTrailParticle(projX, projY, state.heat);
+
+        // Hit detection
+        for (const tgt of state.fieldTargets) {
+          const d = Math.sqrt((projX - tgt.x) ** 2 + (projY - tgt.y) ** 2);
+          if (d <= tgt.hitRadius * missMult) {
+            onProjectileHit(tgt);
+            return;
+          }
+        }
+
+        // Out of bounds
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        if (projX < -80 || projX > W + 80 || projY < -120 || projY > H + 80) {
+          onProjectileMiss();
+          return;
+        }
+
+        slingState.projRAF = requestAnimationFrame(animate);
+      }
+      slingState.projRAF = requestAnimationFrame(animate);
+    }
+
+    function onProjectileHit(target) {
+      cancelAnimationFrame(slingState.projRAF);
+      slingState.inFlight = false;
+      slingState.missCount = 0;
+
+      // Hit flash on target
+      target.orb.classList.add('hit-flash');
+      setTimeout(() => target.orb.classList.remove('hit-flash'), 500);
+
+      // Particle burst at target
+      for (let i = 0; i < 10; i++) {
+        setTimeout(() => spawnTrailParticle(
+          target.x + (Math.random() - 0.5) * 50,
+          target.y + (Math.random() - 0.5) * 50,
+          state.heat
+        ), i * 25);
+      }
+
+      // Haptic feedback
+      if (navigator.vibrate) navigator.vibrate([30, 10, 30]);
+
+      // Toss to this player
+      state.selectedTarget = target.player;
+      tossPotato(true);
+    }
+
+    function onProjectileMiss() {
+      cancelAnimationFrame(slingState.projRAF);
+      slingState.inFlight = false;
+      slingState.missCount++;
+
+      const container = document.getElementById('potatoContainer');
+      container.style.transition = '';
+      container.style.transform = '';
+      container.style.visibility = '';
+      // Bounce-back animation
+      container.classList.add('potato-receiving');
+      setTimeout(() => container.classList.remove('potato-receiving'), 800);
+
+      showToast('Missed! Pull back and aim at a farmer.', 'error');
     }
 
     function spawnTrailParticle(x, y, heat) {
@@ -1422,7 +1531,7 @@
       const colors = heat > 0.5
         ? ['#ff4444', '#ff8c42', '#ffd700', '#ffaa00']
         : ['#c9a84c', '#f5e6b8', '#ffd700', '#8b6914'];
-      p.style.cssText = 'left:' + (x - size/2) + 'px;top:' + (y - size/2) + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random() * colors.length)] + ';';
+      p.style.cssText = 'left:' + (x - size / 2) + 'px;top:' + (y - size / 2) + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random() * colors.length)] + ';';
       trailContainer.appendChild(p);
       setTimeout(() => p.remove(), 600);
     }
