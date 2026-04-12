@@ -5,7 +5,9 @@ const path = require('path');
 const webpush = require('web-push');
 
 const KEYS_PATH = process.env.VAPID_KEYS_PATH || path.join(__dirname, 'data', 'vapid-keys.json');
-const CONTACT = process.env.VAPID_CONTACT || 'mailto:hello@potatogame.local';
+// Apple's push service validates the VAPID JWT 'sub' claim strictly — a
+// .local domain gets rejected with 403.  Use a real-ish fallback domain.
+const CONTACT = process.env.VAPID_CONTACT || 'mailto:hello@potatogame.app';
 
 let keys = null;
 
@@ -60,7 +62,7 @@ async function sendOne(subscription, payload) {
   } catch (err) {
     const status = err.statusCode || 0;
     if (status === 404 || status === 410 || status === 401 || status === 403) {
-      console.warn('[push] dead subscription (' + status + '):', subscription.endpoint.slice(0, 60) + '...');
+      console.warn('[push] dead subscription (' + status + '):', subscription.endpoint.slice(0, 60) + '...', err.body || '');
       return { ok: false, dead: true };
     }
     console.warn('[push] send failed:', status, err.body || err.message);
