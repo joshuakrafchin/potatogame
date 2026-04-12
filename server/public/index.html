@@ -1115,19 +1115,21 @@
       const n = Math.min(sorted.length, 9);
 
       // Distribute into rows: close (easy), mid, far (hard)
+      // Rows are positioned in the lower/middle of the screen so they're
+      // easily reachable from the slingshot at the bottom.
       const rows = [];
       if (n <= 2) {
-        rows.push({ yFrac: 0.35, players: sorted.slice(0, n), hitR: 55, size: 'close' });
+        rows.push({ yFrac: 0.50, players: sorted.slice(0, n), hitR: 65, size: 'close' });
       } else if (n <= 4) {
         const half = Math.ceil(n / 2);
-        rows.push({ yFrac: 0.18, players: sorted.slice(0, n - half), hitR: 42, size: 'mid' });
-        rows.push({ yFrac: 0.40, players: sorted.slice(n - half), hitR: 52, size: 'close' });
+        rows.push({ yFrac: 0.36, players: sorted.slice(0, n - half), hitR: 52, size: 'mid' });
+        rows.push({ yFrac: 0.54, players: sorted.slice(n - half), hitR: 62, size: 'close' });
       } else {
         const r1 = Math.ceil(n / 3);
         const r2 = Math.ceil((n - r1) / 2);
-        rows.push({ yFrac: 0.13, players: sorted.slice(0, r1), hitR: 34, size: 'far' });
-        rows.push({ yFrac: 0.28, players: sorted.slice(r1, r1 + r2), hitR: 44, size: 'mid' });
-        rows.push({ yFrac: 0.44, players: sorted.slice(r1 + r2), hitR: 54, size: 'close' });
+        rows.push({ yFrac: 0.26, players: sorted.slice(0, r1), hitR: 44, size: 'far' });
+        rows.push({ yFrac: 0.40, players: sorted.slice(r1, r1 + r2), hitR: 54, size: 'mid' });
+        rows.push({ yFrac: 0.54, players: sorted.slice(r1 + r2), hitR: 62, size: 'close' });
       }
 
       for (const row of rows) {
@@ -1285,8 +1287,8 @@
     const SLING = {
       MAX_PULL: 160,
       MIN_PULL: 25,
-      MAX_VELOCITY: 850,
-      GRAVITY: 480,
+      MAX_VELOCITY: 1100,
+      GRAVITY: 400,
     };
     let slingState = { pulling: false, anchorX: 0, anchorY: 0, pullX: 0, pullY: 0, power: 0, launchAngle: 0, inFlight: false, missCount: 0, projRAF: 0 };
 
