@@ -280,6 +280,12 @@ class GameManager {
     potato.isHot = false;
     potato.holderId = toId;
 
+    // Offline players get 2 minutes to open the app before burn
+    if (receiverOffline) {
+      potato.hotTime = now + 60000;
+      potato.burnTime = now + 120000;
+    }
+
     // Transfer
     tosser.potato = null;
     receiver.potato = potato;
