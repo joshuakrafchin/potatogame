@@ -36,7 +36,7 @@ function notifyIncomingPotato(receiverDbId, fromName, potatoName) {
   });
 }
 
-app.get('/health', (req, res) => res.json({ status: 'ok', version: '2.0.1' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '2.1.0' }));
 
 // --- Web Push: VAPID public key + subscribe / unsubscribe ---
 app.get('/api/vapid-public-key', (req, res) => {
